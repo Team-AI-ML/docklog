@@ -5,6 +5,11 @@ on:
     branches:
       - main
       - 'stable/*'
+    paths-ignore:
+      - 'README.md'
+      - 'docs/**'
+      - '.gitignore'
+      - 'LICENSE'
 
 # Prevent multiple builds from running concurrently on the same branch
 concurrency:

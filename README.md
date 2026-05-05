@@ -71,11 +71,11 @@
 
 DockLog can be configured using environment variables:
 
-| Variable      | Description                      | Default                       |
-| :------------ | :------------------------------- | :---------------------------- |
-| `SECRET_KEY`  | Key used for signing JWT tokens. | `secret-key-change-this`      |
+| Variable      | Description                       | Default                       |
+| :------------ | :-------------------------------- | :---------------------------- |
+| `SECRET_KEY`  | Key used for signing JWT tokens.  | `secret-key-change-this`      |
 | `DB_PATH`     | Path to the SQLite database file. | `docklog.db`                  |
-| `DOCKER_HOST` | The Docker daemon socket path.   | `unix:///var/run/docker.sock` |
+| `DOCKER_HOST` | The Docker daemon socket path.    | `unix:///var/run/docker.sock` |
 
 > [!IMPORTANT]
 > **Security Requirement**: You must generate a secure `SECRET_KEY` for JWT signing in production. Use this command to generate a random key:
@@ -133,6 +133,23 @@ make up
 ```
 
 This will create `./data/docklog.db` automatically inside the mounted volume, then start the stack.
+
+### 🐳 Deployment (Direct Docker Run)
+
+```bash
+docker run -d \
+  --name docklog \
+  -p 8888:8000 \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  -v $(pwd)/data:/app/data \
+  -e SECRET_KEY=your-secure-key-here \
+  -e DB_PATH=/app/data/docklog.db \
+  --restart unless-stopped \
+  aimldev/docklog:latest
+```
+
+### 📦 Docker Hub
+The official image is available on Docker Hub: [**aimldev/docklog**](https://hub.docker.com/r/aimldev/docklog)
 
 ---
 
