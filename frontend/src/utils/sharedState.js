@@ -17,6 +17,7 @@ export const sharedState = reactive({
     type: 'success'
   },
   isBackendDisconnected: false,
+  activeProvider: 'docker', // 'docker' or 'kubernetes'
 });
 
 export const showToast = (title, message, type = 'success') => {
@@ -67,6 +68,7 @@ export const fetchSystemStats = async () => {
       const data = await res.json();
       sharedState.systemStats = {
         cpu: data.cpu,
+        cores: data.cores || 1,
         usedMemGB: data.memory / (1024 * 1024 * 1024),
         totalMemGB: data.total_memory / (1024 * 1024 * 1024),
         memory: formatBytes(data.memory) + ' / ' + formatBytes(data.total_memory)

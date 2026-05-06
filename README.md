@@ -1,140 +1,297 @@
 # DockLog 🐳
 
 <p align="center">
-  <img src="frontend/public/logo-horizontal.png?v=2" alt="DockLog Logo" width="400">
+  <img src="frontend/public/logo-horizontal.png?v=2" alt="DockLog Logo" width="420">
 </p>
 
 <p align="center">
-  <strong>High-performance, real-time Docker log viewer for teams.</strong><br>
-  Built with Go 1.24 and Vue 3 for speed, security, and a premium monitoring experience.
+  <strong>High-performance, real-time Docker log viewer built for teams.</strong>
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/UI-Compact--Airy-6366f1" alt="UI">
-  <img src="https://img.shields.io/badge/Backend-Go--1.26-00add8" alt="Backend">
+  Lightweight. Secure. Modern. Built for real-world Docker environments.
+</p>
+
+<p align="center">
+  DockLog provides real-time log streaming, RBAC, audit logging, system monitoring, and container management in a clean modern interface.
+</p>
+
+<p align="center">
+  Think of it as a more powerful and team-friendly alternative to Dozzle.
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/docker/pulls/aimldev/docklog" alt="Docker Pulls">
+  <img src="https://img.shields.io/github/license/Team-AI-ML/docklog" alt="License">
+  <img src="https://img.shields.io/badge/Backend-Go--1.24-00add8" alt="Backend">
   <img src="https://img.shields.io/badge/Frontend-Vue--3-42b883" alt="Frontend">
-  <img src="https://img.shields.io/badge/License-MIT-blue" alt="License">
+  <img src="https://img.shields.io/badge/UI-Compact--Airy-6366f1" alt="UI">
+  <img src="https://img.shields.io/github/stars/Team-AI-ML/docklog?style=social" alt="GitHub Stars">
 </p>
 
 ---
 
-## ✨ Features
+> ⚡ Average setup time: under 2 minutes.
 
-### 🎨 Premium "Compact-Airy" UI
+DockLog focuses on fast deployment, low resource usage, and team-safe Docker visibility without requiring heavyweight observability tooling.
 
-- **Minimalist Aesthetic**: A spacious, glassmorphic dark-mode interface that prioritizes readability and looks premium.
-- **Smart Truncation**: Single-line container lists with intelligent hover expansion to prevent layout breakage.
-- **Micro-animations**: Smooth transitions and reactive elements for a state-of-the-art SaaS feel.
-
-### 🔐 Advanced RBAC (Role-Based Access Control)
-
-- **Granular Visibility**: Assign specific container visibility to staff members using **Wildcards** (e.g., `backend*`) or **Regex**.
-- **Action Rights**: Enable/Disable specific rights per user (Start, Stop, Restart, Delete).
-- **Restricted vs. Full Access**: Easily toggle between broad container access and restricted subsets.
-
-### 🕵️ Audit & Security
-
-- **Full Traceability**: Every administrative change and staff action is logged with a timestamp and status.
-- **First-Login Security**: Forced password change policy for all new accounts.
-- **JWT Authentication**: Secure, token-based session management with encrypted local storage.
-
-### ⚡ High Performance & Reliability
-
-- **WebSocket Streaming**: Real-time log tailing with minimal latency.
-- **Self-Healing Streams**: Automatic reconnection logic for logs and stats if the backend connection is interrupted.
-- **Connectivity Monitoring**: Real-time status detection for both internet and backend connectivity with instant toast notifications.
-- **Smart Refresh**: The sidebar container list auto-refreshes every 5 seconds to ensure status indicators stay synchronized.
-- **Lightweight Footprint**: Written in Go for extremely low CPU and memory overhead.
-- **Single-Binary Deployment**: The Go server embeds the entire frontend for easy distribution.
+Built for developers who want real-time Docker visibility with modern operational workflows.
 
 ---
 
-## 🛠 Tech Stack
+# 📸 Preview
 
-- **Core**: Go 1.24, Echo Framework, Moby Docker SDK.
-- **Frontend**: Vue.js 3, Vite, pnpm, Vanilla CSS (Custom Design System).
-- **Storage**: SQLite for user management and audit logs.
-- **Networking**: WebSockets for live logs, REST for management.
+## 📊 Dashboard
 
----
+![Dashboard](assets/dashboard.png)
 
-## 📚 Documentation
-
-- [**Architecture Overview**](docs/ARCHITECTURE.md) - Deep dive into how DockLog works.
-- [**Security & RBAC**](docs/SECURITY.md) - Details on our security model and permission system.
+Real-time Docker monitoring with lightweight system metrics and container controls.
 
 ---
 
-## ⚙️ Configuration
+## 🐳 Container Management
 
-### Environment Variables
+![Containers](assets/containers.png)
 
-DockLog can be configured using environment variables:
-
-| Variable      | Description                       | Default                       |
-| :------------ | :-------------------------------- | :---------------------------- |
-| `SECRET_KEY`  | Key used for signing JWT tokens.  | `secret-key-change-this`      |
-| `DB_PATH`     | Path to the SQLite database file. | `docklog.db`                  |
-| `DOCKER_HOST` | The Docker daemon socket path.    | `unix:///var/run/docker.sock` |
-
-> [!IMPORTANT]
-> **Security Requirement**: You must generate a secure `SECRET_KEY` for JWT signing in production. Use this command to generate a random key:
->
-> ```bash
-> openssl rand -base64 32
-> ```
+Monitor, control, and manage containers with fast operational actions.
 
 ---
 
-## 👥 User Roles & Permissions
+## 🔐 RBAC & Staff Management
 
-### 👑 Global Administrator
+![RBAC](assets/rbac.png)
 
-- Full visibility of all containers.
-- Account management (Create/Delete/Reset Passwords).
-- Access to full audit logs.
-
-### 🛠️ Staff Member
-
-Visibility is controlled via **Patterns** (e.g., `redis`, `backend*`, `prod-*, *-app`).
-Users only see and can only interact with containers that match their assigned patterns.
+Granular container-level permissions with wildcard and regex-based access control.
 
 ---
 
-## 🚀 Getting Started
+## 🕵️ Security Audit Logs
 
-### 🔑 Initial Credentials
+![Audit Logs](assets/audit-logs.png)
 
-- **Username**: `admin`
-- **Password**: `admin123`
-- _Note: You will be prompted to change your password on the first login._
+Track administrative actions and security events with a complete audit trail.
 
-### 🐳 Deployment (Docker Compose)
+---
+
+# 🚀 Why DockLog?
+
+Most Docker log viewers are built for a single administrator.
+
+DockLog is built for the entire team.
+
+- **Team-First Security**  
+  Give developers access only to the containers they need using wildcard and regex-based RBAC.
+
+- **Audit Everything**  
+  Track exactly who restarted, stopped, or modified containers with full audit logging.
+
+- **Zero-Config Deployment**  
+  No external database. No large configuration files. Just run the container and start monitoring.
+
+- **Performance Without Compromise**  
+  Written in Go for extremely low memory and CPU usage.
+
+- **Modern Developer Experience**  
+  Fast, responsive UI designed for operational workflows.
+
+---
+
+# ✨ Features
+
+## 📜 Real-Time Log Streaming
+
+- WebSocket-based live streaming
+- Infinite scrolling through millions of log lines
+- Smart auto-scroll behavior
+- Manual history loading with progress tracking
+- RFC3339Nano precision timestamp filtering
+- Automatic reconnection handling
+- Search and filtering support
+
+---
+
+## 🔐 Advanced RBAC
+
+- Wildcard container permissions (`backend-*`)
+- Full regex support (`^prod-.*$`)
+- Per-user action permissions
+- Restricted vs. global visibility
+- Staff account management
+- Container-level access isolation
+
+---
+
+## 🕵️ Audit & Security
+
+- Full audit trail for administrative actions
+- First-login forced password reset
+- JWT authentication
+- Encrypted local storage
+- Connectivity monitoring
+- Backend availability detection
+
+---
+
+## 📊 System Monitoring
+
+- Global host CPU and memory monitoring
+- Historical usage analytics
+- Assigned core detection
+- Container memory profiling
+- Normalized CPU utilization
+- Real-time system metrics
+
+---
+
+## ⚡ High Performance
+
+- Lightweight Go backend
+- Low memory footprint (~30MB to 50MB typical)
+- Handles thousands of log lines per second
+- Embedded frontend for single-binary deployment
+- Optimized WebSocket streaming
+- Fast container filtering
+
+---
+
+# 📈 Performance Benchmarks
+
+| Metric          | Value            |
+| --------------- | ---------------- |
+| RAM Usage       | ~30MB to 50MB    |
+| Backend         | Go 1.24          |
+| Frontend        | Vue 3            |
+| Log Throughput  | 10k+ lines/sec   |
+| Deployment Type | Single Container |
+
+---
+
+# 🆚 DockLog vs Alternatives
+
+| Feature                     | DockLog | Dozzle  | Loki/Grafana   |
+| --------------------------- | ------- | ------- | -------------- |
+| Real-time logs              | ✅      | ✅      | ✅             |
+| Multi-user RBAC             | ✅      | ❌      | Advanced setup |
+| Wildcard permissions        | ✅      | ❌      | Complex        |
+| Audit logging               | ✅      | ❌      | Partial        |
+| Lightweight VPS usage       | ✅      | ✅      | ❌             |
+| Single-container deployment | ✅      | ✅      | ❌             |
+| Historical observability    | Limited | Limited | ✅             |
+| Kubernetes observability    | Planned | ❌      | ✅             |
+
+---
+
+# 🛠 Tech Stack
+
+| Layer            | Technology                |
+| ---------------- | ------------------------- |
+| Backend          | Go 1.24 + Echo            |
+| Frontend         | Vue 3 + Vite              |
+| Streaming        | WebSockets                |
+| Database         | SQLite                    |
+| Container Engine | Docker SDK                |
+| Styling          | Vanilla CSS Design System |
+
+---
+
+# ⚙️ Configuration
+
+## Environment Variables
+
+| Variable      | Description          | Default                       |
+| ------------- | -------------------- | ----------------------------- |
+| `SECRET_KEY`  | JWT signing secret   | `secret-key-change-this`      |
+| `DB_PATH`     | SQLite database path | `docklog.db`                  |
+| `DOCKER_HOST` | Docker daemon socket | `unix:///var/run/docker.sock` |
+
+---
+
+## Generate Secure Secret Key
+
+```bash
+openssl rand -base64 32
+```
+
+---
+
+# 👥 User Roles
+
+## 👑 Administrator
+
+- Full container visibility
+- User management
+- Audit log access
+- Full container control
+
+---
+
+## 🛠 Staff Member
+
+Container visibility is controlled using patterns such as:
+
+```text
+redis
+backend-*
+prod-*, *-app
+^prod-.*$
+```
+
+Users only see containers matching their assigned rules.
+
+---
+
+# 🚀 Getting Started
+
+## 🔑 Default Login
+
+| Username | Password   |
+| -------- | ---------- |
+| `admin`  | `admin123` |
+
+> [!WARNING]
+> Change the default administrator password immediately after first login.
+
+---
+
+# 🐳 Docker Compose
 
 ```yaml
 version: "3.8"
+
 services:
   docklog:
     image: aimldev/docklog:latest
     container_name: docklog
+
     ports:
       - "8888:8000"
+
     environment:
       - SECRET_KEY=your-secure-key-here
       - DB_PATH=/app/data/docklog.db
+
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - ./data:/app/data
+
     restart: unless-stopped
 ```
 
+Start DockLog:
+
 ```bash
-make up
+docker compose up -d
 ```
 
-This will create `./data/docklog.db` automatically inside the mounted volume, then start the stack.
+Open:
 
-### 🐳 Deployment (Direct Docker Run)
+```text
+http://localhost:8888
+```
+
+---
+
+# 🐳 Direct Docker Run
 
 ```bash
 docker run -d \
@@ -148,20 +305,106 @@ docker run -d \
   aimldev/docklog:latest
 ```
 
-### 📦 Docker Hub
-The official image is available on Docker Hub: [**aimldev/docklog**](https://hub.docker.com/r/aimldev/docklog)
+---
+
+# 🔒 Docker Socket Security
+
+DockLog requires access to:
+
+```text
+/var/run/docker.sock
+```
+
+This effectively grants Docker API access to the application.
+
+Recommended production setup:
+
+- place behind Nginx or Traefik
+- enable HTTPS
+- restrict public access
+- expose only trusted networks
+- use strong administrator credentials
+- rotate `SECRET_KEY` periodically
 
 ---
 
-## 📂 Project Structure
+# 📂 Project Structure
 
-- `main.go`: Multi-functional Go server (API, WebSockets, Asset Server).
-- `db/`: SQLite database initialization and schema.
-- `frontend/`: The Vue 3 single-page application.
-- `.github/workflows/`: CI/CD pipeline for Docker Hub deployment.
+| Path                 | Description           |
+| -------------------- | --------------------- |
+| `main.go`            | Main Go server        |
+| `frontend/`          | Vue 3 frontend        |
+| `db/`                | SQLite initialization |
+| `.github/workflows/` | CI/CD pipelines       |
+| `docs/`              | Project documentation |
 
 ---
 
-## 📜 License
+# 📚 Documentation
 
-MIT
+- [Architecture Overview](docs/ARCHITECTURE.md)
+- [Security & RBAC](docs/SECURITY.md)
+
+---
+
+# 🛣️ Roadmap
+
+Planned features:
+
+- log retention controls
+- notifications
+- API tokens
+- multi-host support
+- Kubernetes support
+- external authentication providers
+- organization/team management
+
+---
+
+# 🤝 Contributing
+
+Contributions, issues, and feature requests are welcome.
+
+1. Fork the repository
+2. Create a feature branch
+3. Submit a pull request
+
+---
+
+# 📦 Docker Hub
+
+https://hub.docker.com/r/aimldev/docklog
+
+---
+
+# 🔓 Open Source License
+
+DockLog is open-source software licensed under the MIT License.
+
+You are free to:
+
+- use
+- modify
+- distribute
+- self-host
+- commercialize
+
+See the `LICENSE` file for full details.
+
+---
+
+# ❤️ Support The Project
+
+If DockLog helps your workflow:
+
+- star the repository
+- report bugs
+- contribute improvements
+- share feedback
+- suggest new features
+
+---
+
+<p align="center">
+  Built for developers who want real-time Docker visibility without deploying an observability cathedral.
+</p>

@@ -13,22 +13,46 @@ const routes = [
     meta: { requiresAuth: true, layout: 'main', title: 'Dashboard' }
   },
   { 
+    path: '/containers', 
+    name: 'Containers', 
+    component: () => import('../views/Containers.vue'),
+    meta: { requiresAuth: true, layout: 'main', title: 'Container Management' }
+  },
+  { 
+    path: '/logs', 
+    name: 'Logs', 
+    component: () => import('../views/Logs.vue'),
+    meta: { requiresAuth: true, layout: 'main', title: 'Live Log Stream' }
+  },
+  { 
+    path: '/health', 
+    name: 'Health', 
+    component: () => import('../views/Health.vue'),
+    meta: { requiresAuth: true, layout: 'main', title: 'System Health' }
+  },
+  { 
     path: '/admin', 
     name: 'Admin', 
     component: Admin,
     meta: { requiresAuth: true, requiresAdmin: true, layout: 'main', title: 'Admin Control Center' }
   },
   { 
+    path: '/audit', 
+    name: 'Audit', 
+    component: () => import('../views/Audit.vue'),
+    meta: { requiresAuth: true, requiresAdmin: true, layout: 'main', title: 'Security Audits' }
+  },
+  { 
+    path: '/settings', 
+    name: 'Settings', 
+    component: () => import('../views/Settings.vue'),
+    meta: { requiresAuth: true, layout: 'main', title: 'Account Settings' }
+  },
+  { 
     path: '/login', 
     name: 'Login', 
     component: Login,
     meta: { title: 'Sign In' }
-  },
-  {
-    path: '/health',
-    name: 'Health',
-    component: () => import('../views/Health.vue'),
-    meta: { requiresAuth: true, layout: 'main', title: 'System Health' }
   },
   {
     path: '/:pathMatch(.*)*',

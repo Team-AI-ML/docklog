@@ -170,7 +170,18 @@
 @media (max-width: 640px) {
   .not-found-card {
     max-width: 90%;
-    padding: 3rem 2rem;
+    padding: 2.5rem 1.5rem;
+    border-radius: 24px;
+  }
+  .error-code {
+    font-size: 2rem;
+  }
+  .glow-box {
+    width: 100px;
+    height: 100px;
+  }
+  .error-content h1 {
+    font-size: 1.5rem;
   }
 }
 </style>

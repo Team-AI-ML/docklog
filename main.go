@@ -11,9 +11,12 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"bytes"
+	"runtime"
 
 	"docklog/db"
 
+	"github.com/docker/docker/pkg/stdcopy"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/gorilla/websocket"
 	echojwt "github.com/labstack/echo-jwt/v4"
@@ -33,10 +36,12 @@ var (
 )
 
 type Container struct {
-	ID    string `json:"id"`
-	Name  string `json:"name"`
-	Image string `json:"image"`
-	State string `json:"state"`
+	ID      string `json:"id"`
+	Name    string `json:"name"`
+	Image   string `json:"image"`
+	State   string `json:"state"`
+	Created int64  `json:"created"`
+	Status  string `json:"status"`
 }
 
 type UserClaims struct {
@@ -93,36 +98,39 @@ func getAuthorizedPatterns(userID int) []string {
 		return []string{""}
 	}
 
-	// Support multiple patterns separated by comma and anchor them for exact match
+	// Support multiple patterns separated by comma
 	rawPatterns := strings.Split(pattern, ",")
-	var anchoredPatterns []string
+	var finalPatterns []string
 	for _, p := range rawPatterns {
 		p = strings.TrimSpace(p)
 		if p == "" {
 			continue
 		}
 
-		// If it's exactly .*, just pass it
-		if p == ".*" {
-			anchoredPatterns = append(anchoredPatterns, p)
+		// If it's already a regex anchor, assume it's a full regex
+		if strings.HasPrefix(p, "^") || strings.HasSuffix(p, "$") {
+			finalPatterns = append(finalPatterns, p)
 			continue
 		}
 
-		// Convert glob * to regex .* and ensure it's not doubled
+		// Otherwise, treat as a simple string with wildcard support
+		// Convert glob * to regex .*
 		regP := strings.ReplaceAll(p, "*", ".*")
+		// Clean up potential double stars
 		regP = strings.ReplaceAll(regP, "..*", ".*")
 
 		// Anchor the pattern to ensure exact matches for simple strings
-		// but allow flexible matching for patterns with wildcards.
-		if !strings.HasPrefix(regP, "^") {
-			regP = "^" + regP
+		if !strings.ContainsAny(regP, "()[]{}|") {
+			if !strings.HasPrefix(regP, "^") {
+				regP = "^" + regP
+			}
+			if !strings.HasSuffix(regP, "$") {
+				regP = regP + "$"
+			}
 		}
-		if !strings.HasSuffix(regP, "$") {
-			regP = regP + "$"
-		}
-		anchoredPatterns = append(anchoredPatterns, regP)
+		finalPatterns = append(finalPatterns, regP)
 	}
-	return anchoredPatterns
+	return finalPatterns
 }
 
 func main() {
@@ -300,11 +308,16 @@ func main() {
 			}
 
 			if visible {
+				createdVal, _ := ctr["Created"].(float64)
+				statusVal, _ := ctr["Status"].(string)
+
 				list = append(list, Container{
-					ID:    shortID,
-					Name:  name,
-					Image: image,
-					State: state,
+					ID:      shortID,
+					Name:    name,
+					Image:   image,
+					State:   state,
+					Created: int64(createdVal),
+					Status:  statusVal,
 				})
 			}
 		}
@@ -431,6 +444,164 @@ func main() {
 
 		_, err = io.Copy(c.Response().Writer, out)
 		return err
+	})
+
+	r.GET("/containers/:id/logs", func(c echo.Context) error {
+		id := c.Param("id")
+		untilStr := c.QueryParam("until")
+		
+		token := c.Get("user").(*jwt.Token)
+		userClaims := token.Claims.(*UserClaims)
+
+		container, err := cli.ContainerInspect(context.Background(), id, client.ContainerInspectOptions{})
+		if err != nil {
+			return c.JSON(http.StatusNotFound, map[string]string{"error": "Container not found"})
+		}
+
+		if !userClaims.IsAdmin {
+			containerName := strings.TrimPrefix(container.Container.Name, "/")
+			patterns := getAuthorizedPatterns(userClaims.ID)
+			authorized := false
+			for _, p := range patterns {
+				if matched, _ := regexp.MatchString(p, containerName); matched {
+					authorized = true
+					break
+				}
+			}
+			if !authorized {
+				return c.JSON(http.StatusForbidden, map[string]string{"error": "Access Denied"})
+			}
+		}
+
+		options := client.ContainerLogsOptions{
+			ShowStdout: true,
+			ShowStderr: true,
+			Timestamps: true,
+			Follow:     false,
+		}
+
+		out, err := cli.ContainerLogs(context.Background(), id, options)
+		if err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		}
+		defer out.Close()
+
+		var output bytes.Buffer
+		if container.Container.Config.Tty {
+			io.Copy(&output, out)
+		} else {
+			stdcopy.StdCopy(&output, &output, out)
+		}
+
+		allLines := strings.Split(output.String(), "\n")
+		var logs []string
+
+		if untilStr == "" {
+			// Initial load - just get last 100
+			for _, line := range allLines {
+				if line != "" {
+					logs = append(logs, line)
+				}
+			}
+			if len(logs) > 100 {
+				logs = logs[len(logs)-100:]
+			}
+		} else {
+			// Historical fetch - get 100 lines before 'until'
+			var untilTime time.Time
+			// Try parsing as RFC3339Nano (Docker's default)
+			untilTime, err = time.Parse(time.RFC3339Nano, untilStr)
+			if err != nil {
+				// Fallback to RFC3339
+				untilTime, err = time.Parse(time.RFC3339, untilStr)
+				if err != nil {
+					// Fallback to Unix
+					if unix, err := strconv.ParseInt(untilStr, 10, 64); err == nil {
+						untilTime = time.Unix(unix, 0)
+					}
+				}
+			}
+
+			var filtered []string
+			for _, line := range allLines {
+				if line == "" {
+					continue
+				}
+				// Extract timestamp from line
+				parts := strings.SplitN(line, " ", 2)
+				if len(parts) > 0 {
+					ts, err := time.Parse(time.RFC3339Nano, parts[0])
+					if err != nil {
+						ts, err = time.Parse(time.RFC3339, parts[0])
+					}
+					
+					if err == nil {
+						// Be inclusive (!After) to ensure no logs are missed; 
+						// the frontend will handle deduplication of the boundary log.
+						if !ts.After(untilTime) {
+							filtered = append(filtered, line)
+						}
+					}
+				}
+			}
+			
+			if len(filtered) > 100 {
+				logs = filtered[len(filtered)-100:]
+			} else {
+				logs = filtered
+			}
+		}
+
+		log.Printf("[API] Found %d lines for %s (until: %s)", len(logs), id, untilStr)
+		return c.JSON(http.StatusOK, logs)
+	})
+
+	r.GET("/containers/:id/logs/count", func(c echo.Context) error {
+		id := c.Param("id")
+		token := c.Get("user").(*jwt.Token)
+		userClaims := token.Claims.(*UserClaims)
+
+		container, err := cli.ContainerInspect(context.Background(), id, client.ContainerInspectOptions{})
+		if err != nil {
+			return c.JSON(http.StatusNotFound, map[string]string{"error": "Container not found"})
+		}
+
+		if !userClaims.IsAdmin {
+			containerName := strings.TrimPrefix(container.Container.Name, "/")
+			patterns := getAuthorizedPatterns(userClaims.ID)
+			authorized := false
+			for _, p := range patterns {
+				if matched, _ := regexp.MatchString(p, containerName); matched {
+					authorized = true
+					break
+				}
+			}
+			if !authorized {
+				return c.JSON(http.StatusForbidden, map[string]string{"error": "Access Denied"})
+			}
+		}
+
+		options := client.ContainerLogsOptions{
+			ShowStdout: true,
+			ShowStderr: true,
+			Follow:     false,
+		}
+
+		out, err := cli.ContainerLogs(context.Background(), id, options)
+		if err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		}
+		defer out.Close()
+
+		var output bytes.Buffer
+		if container.Container.Config.Tty {
+			io.Copy(&output, out)
+		} else {
+			stdcopy.StdCopy(&output, &output, out)
+		}
+
+		count := strings.Count(output.String(), "\n")
+		return c.JSON(http.StatusOK, map[string]int{"total": count})
 	})
 
 	r.GET("/containers/:id/stats", func(c echo.Context) error {
@@ -617,6 +788,7 @@ func main() {
 			"cpu":          cpuVal,
 			"memory":       v.Used,
 			"total_memory": v.Total,
+			"cores":        runtime.NumCPU(),
 		})
 	})
 
@@ -779,7 +951,7 @@ func main() {
 		if err != nil {
 			return c.JSON(http.StatusBadRequest, map[string]string{"error": "Password is too long or invalid. Please use a shorter password."})
 		}
-		_, err = db.DB.Exec("UPDATE users SET password = ?, password_changed = 0 WHERE id = ?", string(h), id)
+		_, err = db.DB.Exec("UPDATE users SET password = ?, password_changed = 1 WHERE id = ?", string(h), id)
 		if err != nil {
 			return err
 		}
@@ -801,7 +973,19 @@ func main() {
 	})
 
 	admin.GET("/audit", func(c echo.Context) error {
-		rows, err := db.DB.Query("SELECT id, user_id, username, action, resource, status, message, timestamp FROM audit_logs ORDER BY timestamp DESC LIMIT 500")
+		from := c.QueryParam("from")
+		to := c.QueryParam("to")
+
+		query := "SELECT id, user_id, username, action, resource, status, message, timestamp FROM audit_logs"
+		args := []interface{}{}
+
+		if from != "" && to != "" {
+			query += " WHERE timestamp BETWEEN ? AND ?"
+			args = append(args, from, to)
+		}
+
+		query += " ORDER BY timestamp DESC LIMIT 1000"
+		rows, err := db.DB.Query(query, args...)
 		if err != nil {
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to fetch audit logs: " + err.Error()})
 		}
@@ -877,7 +1061,8 @@ func main() {
 			ShowStdout: true,
 			ShowStderr: true,
 			Follow:     true,
-			Tail:       "200",
+			Tail:       "100",
+			Timestamps: true,
 		})
 		if err != nil {
 			return err

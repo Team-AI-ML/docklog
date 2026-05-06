@@ -1,380 +1,310 @@
 <template>
-  <div class="dashboard-page">
-    <main class="main-content">
-      <button
-        v-if="!isCompact && !sharedState.dashboardSidebarOpen"
-        class="sidebar-expand-btn"
-        @click="sharedState.dashboardSidebarOpen = true"
-        title="Expand Sidebar"
-      >
-        <svg
-          viewBox="0 0 24 24"
-          width="16"
-          height="16"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="3"
-        >
-          <polyline points="9 18 15 12 9 6"></polyline>
+  <div class="dashboard-container">
+    <!-- Provider Context Banner -->
+    <div v-if="sharedState.activeProvider === 'kubernetes'" class="k8s-banner glass animate-slide-up">
+      <div class="banner-content">
+        <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+          <line x1="12" y1="9" x2="12" y2="13"></line>
+          <line x1="12" y1="17" x2="12.01" y2="17"></line>
         </svg>
-      </button>
-
-      <aside
-        :class="[
-          'sidebar',
-          'glass',
-          { collapsed: !sharedState.dashboardSidebarOpen },
-        ]"
-      >
-        <div class="sidebar-header">
-          <h2>RESOURCES</h2>
-          <div style="display: flex; gap: 0.4rem">
-            <button
-              v-if="!isCompact"
-              @click="sharedState.dashboardSidebarOpen = false"
-              class="mode-toggle"
-              title="Collapse Sidebar"
-            >
-              <svg
-                viewBox="0 0 24 24"
-                width="14"
-                height="14"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2.5"
-              >
-                <polyline points="15 18 9 12 15 6"></polyline>
-              </svg>
-            </button>
-            <button
-              @click="isSplitMode = !isSplitMode"
-              :class="['mode-toggle', { active: isSplitMode }]"
-              title="Split View"
-            >
-              <svg
-                viewBox="0 0 24 24"
-                width="14"
-                height="14"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-              >
-                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-                <line x1="12" y1="3" x2="12" y2="21"></line>
-              </svg>
-            </button>
-          </div>
-        </div>
-
-        <div class="container-list">
-          <div
-            v-for="(c, idx) in filteredContainers"
-            :key="c.id"
-            :class="[
-              'container-card',
-              { selected: isSelected(c.id), focused: focusedIndex === idx },
-            ]"
-            @click="selectContainer(c)"
-          >
-            <div class="card-status" :class="c.state"></div>
-            <div class="card-info">
-              <span class="c-name">{{ c.name }}</span>
-              <span class="c-image">{{ c.image }}</span>
-            </div>
-            <div
-              v-if="
-                currentUser?.is_admin ||
-                currentUser?.can_start ||
-                currentUser?.can_stop ||
-                currentUser?.can_restart ||
-                currentUser?.can_delete
-              "
-              class="card-actions"
-              @click.stop
-            >
-              <button
-                v-if="
-                  c.state !== 'running' &&
-                  (currentUser?.is_admin || currentUser?.can_start)
-                "
-                @click="triggerConfirm(c.id, 'start')"
-                class="action-btn start"
-                title="Start Container"
-              >
-                <svg
-                  viewBox="0 0 24 24"
-                  width="14"
-                  height="14"
-                  stroke="currentColor"
-                  stroke-width="3"
-                  fill="none"
-                >
-                  <polygon points="5 3 19 12 5 21 5 3"></polygon>
-                </svg>
-              </button>
-              <button
-                v-if="
-                  c.state === 'running' &&
-                  (currentUser?.is_admin || currentUser?.can_stop)
-                "
-                @click="triggerConfirm(c.id, 'stop')"
-                class="action-btn stop"
-                title="Stop Container"
-              >
-                <svg
-                  viewBox="0 0 24 24"
-                  width="14"
-                  height="14"
-                  stroke="currentColor"
-                  stroke-width="3"
-                  fill="none"
-                >
-                  <rect x="6" y="6" width="12" height="12"></rect>
-                </svg>
-              </button>
-              <button
-                v-if="
-                  c.state === 'running' &&
-                  (currentUser?.is_admin || currentUser?.can_restart)
-                "
-                @click="triggerConfirm(c.id, 'restart')"
-                class="action-btn restart"
-                title="Restart Container"
-              >
-                <svg
-                  viewBox="0 0 24 24"
-                  width="14"
-                  height="14"
-                  stroke="currentColor"
-                  stroke-width="3"
-                  fill="none"
-                >
-                  <path d="M23 4v6h-6"></path>
-                  <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
-                </svg>
-              </button>
-              <button
-                v-if="currentUser?.is_admin || currentUser?.can_delete"
-                @click="triggerConfirm(c.id, 'remove')"
-                class="action-btn remove"
-                title="Remove Container"
-              >
-                <svg
-                  viewBox="0 0 24 24"
-                  width="14"
-                  height="14"
-                  stroke="currentColor"
-                  stroke-width="3"
-                  fill="none"
-                >
-                  <polyline points="3 6 5 6 21 6"></polyline>
-                  <path
-                    d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"
-                  ></path>
-                </svg>
-              </button>
-            </div>
-          </div>
-        </div>
-      </aside>
-
-      <div
-        :class="[
-          'sidebar-backdrop',
-          { active: isCompact && sharedState.dashboardSidebarOpen },
-        ]"
-        @click="closeSidebar"
-      ></div>
-
-      <section class="viewer-area">
-        <div v-if="selectedContainers.length === 0" class="standby-view">
-          <div class="standby-content">
-            <div class="standby-icon">
-              <svg
-                viewBox="0 0 24 24"
-                width="48"
-                height="48"
-                stroke="currentColor"
-                stroke-width="1.5"
-                fill="none"
-              >
-                <rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect>
-                <rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect>
-                <line x1="6" y1="6" x2="6.01" y2="6"></line>
-                <line x1="6" y1="18" x2="6.01" y2="18"></line>
-              </svg>
-            </div>
-            <h2>System Standby</h2>
-            <p>
-              Select a container from the sidebar to begin real-time monitoring.
-            </p>
-
-            <!-- Standby Stats Card -->
-            <div v-if="systemStats" class="standby-stats-card glass">
-              <div class="s-card-item">
-                <span class="s-card-label">SYSTEM CPU</span>
-                <div class="s-card-main">
-                  <span class="s-card-value highlight">{{ Number(systemStats.cpu || 0).toFixed(1) }}%</span>
-                  <div class="s-card-bar"><div class="s-bar-fill" :style="{ width: (systemStats.cpu || 0) + '%', background: getStatColor(systemStats.cpu) }"></div></div>
-                </div>
-              </div>
-              <div class="s-card-item">
-                <span class="s-card-label">SYSTEM MEMORY</span>
-                <div class="s-card-main">
-                  <span class="s-card-value">
-                    <span class="highlight">{{ (systemStats.usedMemGB || 0).toFixed(1) }}</span>
-                    <span class="unit"> / {{ (systemStats.totalMemGB || 0).toFixed(1) }} GB</span>
-                  </span>
-                  <div class="s-card-bar">
-                    <div
-                      class="s-bar-fill accent"
-                      :style="{
-                        width: ((systemStats.totalMemGB || 0) > 0
-                          ? ((systemStats.usedMemGB || 0) / systemStats.totalMemGB) * 100
-                          : 0) + '%'
-                      }"
-                    ></div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div v-else :class="['viewer-grid', { 'split-view': isSplitMode }]">
-          <LogViewer
-            v-for="c in activeViewers"
-            :key="c.id"
-            :container="c"
-            @close="removeContainer(c)"
-            :show-close="isSplitMode"
-            :compact-header="isSplitMode"
-          />
-        </div>
-      </section>
-    </main>
-
-    <!-- Unified Action Confirmation Modal -->
-    <Transition name="fade">
-      <div v-if="showConfirm" class="modal-overlay glass">
-        <div class="modal-content glass shadow-2xl">
-          <div :class="['modal-icon', pendingAction]">
-            <svg
-              v-if="pendingAction === 'start'"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2.5"
-            >
-              <polygon points="5 3 19 12 5 21 5 3"></polygon>
-            </svg>
-            <svg
-              v-else-if="pendingAction === 'stop'"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2.5"
-            >
-              <rect x="6" y="6" width="12" height="12"></rect>
-            </svg>
-            <svg
-              v-else-if="pendingAction === 'restart'"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2.5"
-            >
-              <path d="M23 4v6h-6"></path>
-              <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
-            </svg>
-            <svg
-              v-else
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2.5"
-            >
-              <path d="M3 6h18"></path>
-              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"></path>
-              <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-            </svg>
-          </div>
-          <h3>
-            Confirm
-            {{ pendingAction.charAt(0).toUpperCase() + pendingAction.slice(1) }}
-          </h3>
-          <p>
-            Are you sure you want to
-            <strong>{{ pendingAction }}</strong> container
-            <strong>{{ pendingId }}</strong
-            >?
-            <span v-if="pendingAction === 'remove'"
-              >This action is permanent and cannot be undone.</span
-            >
-            <span v-else>This will affect the container's availability.</span>
-          </p>
-          <div class="modal-actions">
-            <button @click="showConfirm = false" class="modal-btn cancel">
-              Cancel
-            </button>
-            <button
-              @click="executeAction"
-              :class="['modal-btn', `confirm-${pendingAction}`]"
-            >
-              {{
-                pendingAction.charAt(0).toUpperCase() + pendingAction.slice(1)
-              }}
-              Container
-            </button>
-          </div>
+        <div class="banner-text">
+          <h4>Kubernetes Integration Pending</h4>
+          <p>K8s monitoring is currently in beta. Connection to your cluster is being established.</p>
         </div>
       </div>
-    </Transition>
+    </div>
+
+    <!-- Summary Stats -->
+    <div class="summary-grid animate-slide-up">
+      <div class="premium-stat-card">
+        <div class="stat-header">
+          <div class="stat-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+              <polyline points="2 17 12 22 22 17"></polyline>
+              <polyline points="2 12 12 17 22 12"></polyline>
+            </svg>
+          </div>
+          <span class="badge badge-dim">Total</span>
+        </div>
+        <div class="stat-content">
+          <span class="stat-label">TOTAL CONTAINERS</span>
+          <span class="stat-value">{{ containers.length }}</span>
+        </div>
+      </div>
+
+      <div class="premium-stat-card">
+        <div class="stat-header">
+          <div class="stat-icon success">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+            </svg>
+          </div>
+          <span class="badge badge-success">Active</span>
+        </div>
+        <div class="stat-content">
+          <span class="stat-label">RUNNING</span>
+          <span class="stat-value">{{ runningCount }}</span>
+        </div>
+      </div>
+
+      <div class="premium-stat-card">
+        <div class="stat-header">
+          <div class="stat-icon error">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <path d="M18.36 6.64a9 9 0 1 1-12.73 0"></path>
+              <line x1="12" y1="2" x2="12" y2="12"></line>
+            </svg>
+          </div>
+          <span class="badge badge-error">Stopped</span>
+        </div>
+        <div class="stat-content">
+          <span class="stat-label">STOPPED</span>
+          <span class="stat-value">{{ stoppedCount }}</span>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Overview Grid -->
+    <div class="dashboard-grid full-width">
+      <!-- Container Overview Table -->
+      <div class="grid-section">
+        <div class="section-header">
+          <h3>Container Overview</h3>
+          <div class="header-actions">
+            <div class="search-box glass">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="3">
+                <circle cx="11" cy="11" r="8"></circle>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+              </svg>
+              <input type="text" v-model="sharedState.searchQuery" placeholder="Search..." />
+            </div>
+          </div>
+        </div>
+        
+        <div class="premium-table-container">
+          <table class="premium-table">
+            <thead>
+              <tr>
+                <th>Container Name</th>
+                <th>Image & Tag</th>
+                <th>Created</th>
+                <th>Uptime</th>
+                <th>Status</th>
+                <th class="text-right">Control</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr
+                v-for="c in filteredContainers"
+                :key="c.id"
+                class="container-row"
+              >
+                <td data-label="Container Name">
+                  <div class="name-cell">
+                    <span class="container-title">{{ c.name }}</span>
+                    <span class="container-id">{{ c.id.substring(0, 12) }}</span>
+                  </div>
+                </td>
+                <td data-label="Image & Tag">
+                  <div class="image-cell">
+                    <span class="image-name">{{ c.image.split(":")[0] }}</span>
+                    <span class="image-tag">{{
+                      c.image.split(":")[1] || "latest"
+                    }}</span>
+                  </div>
+                </td>
+                <td data-label="Created">
+                  <span class="date-label">{{ formatDate(c.created) }}</span>
+                </td>
+                <td data-label="Uptime">
+                  <span class="uptime-label">{{ c.status }}</span>
+                </td>
+                <td data-label="Status">
+                  <div
+                    :class="[
+                      'status-pill',
+                      c.state === 'running' ? 'is-running' : 'is-stopped',
+                    ]"
+                  >
+                    <span class="pulse-dot"></span>
+                    {{ c.state.toUpperCase() }}
+                  </div>
+                </td>
+                <td class="text-right" data-label="Actions">
+                  <div class="action-group justify-end">
+                    <button
+                      v-if="c.state !== 'running'"
+                      @click="triggerConfirm(c.id, 'start')"
+                      class="icon-btn start"
+                      data-tooltip="Start Container"
+                    >
+                      <svg
+                        viewBox="0 0 24 24"
+                        width="16"
+                        height="16"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="3"
+                      >
+                        <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                      </svg>
+                    </button>
+                    <button
+                      v-if="c.state === 'running'"
+                      @click="triggerConfirm(c.id, 'stop')"
+                      class="icon-btn stop"
+                      data-tooltip="Stop Container"
+                    >
+                      <svg
+                        viewBox="0 0 24 24"
+                        width="16"
+                        height="16"
+                        fill="currentColor"
+                        stroke="currentColor"
+                        stroke-width="3"
+                      >
+                        <rect x="6" y="6" width="12" height="12"></rect>
+                      </svg>
+                    </button>
+                    <button
+                      @click="triggerConfirm(c.id, 'restart')"
+                      class="icon-btn restart"
+                      data-tooltip="Restart Container"
+                    >
+                      <svg
+                        viewBox="0 0 24 24"
+                        width="16"
+                        height="16"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="3"
+                      >
+                        <path d="M23 4v6h-6"></path>
+                        <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+                      </svg>
+                    </button>
+                    <button
+                      @click="goToLogs(c.id)"
+                      class="icon-btn logs"
+                      data-tooltip="View Live Logs"
+                    >
+                      <svg
+                        viewBox="0 0 24 24"
+                        width="16"
+                        height="16"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="3"
+                      >
+                        <path
+                          d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"
+                        ></path>
+                        <path d="M8 9h8M8 13h5"></path>
+                      </svg>
+                    </button>
+                    <button
+                      @click="triggerConfirm(c.id, 'remove')"
+                      class="icon-btn stop"
+                      data-tooltip="Delete Container"
+                    >
+                      <svg
+                        viewBox="0 0 24 24"
+                        width="16"
+                        height="16"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="3"
+                      >
+                        <polyline points="3 6 5 6 21 6"></polyline>
+                        <path
+                          d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"
+                        ></path>
+                      </svg>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+
+    </div>
+
+    <!-- Unified Action Confirmation Modal -->
+    <Teleport to="body">
+      <Transition name="fade">
+        <div v-if="showConfirm" class="modal-overlay">
+          <div class="modal-content shadow-2xl">
+            <div :class="['modal-icon', actionClass]">
+              <svg v-if="pendingAction === 'start'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+              <svg v-else-if="pendingAction === 'stop'" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2.5"><rect x="6" y="6" width="12" height="12"></rect></svg>
+              <svg v-else-if="pendingAction === 'restart'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M23 4v6h-6"></path><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
+              <svg v-else-if="pendingAction === 'remove'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <polyline points="3 6 5 6 21 6"></polyline>
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+              </svg>
+            </div>
+            <div class="modal-text-center">
+              <h3>Confirm Operation</h3>
+              <p>Are you sure you want to <strong>{{ pendingAction }}</strong> this container? This may affect active services.</p>
+            </div>
+            <div class="modal-divider"></div>
+            <div class="modal-actions">
+              <button @click="showConfirm = false" class="modal-btn cancel">Cancel</button>
+              <button @click="executeAction" :class="['modal-btn confirm', actionClass]">Confirm {{ pendingAction }}</button>
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
   </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted, watch } from "vue";
 import { useRouter, useRoute } from "vue-router";
-import LogViewer from "../components/LogViewer.vue";
 import { secureStorage } from "../utils/storage";
 import { sharedState, showToast } from "../utils/sharedState";
 
+const formatDate = (unix) => {
+  if (!unix) return "N/A";
+  return new Date(unix * 1000).toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+};
 const router = useRouter();
 const route = useRoute();
 
 const containers = ref([]);
-const selectedContainers = ref([]);
-const isSplitMode = ref(false);
-const isCompact = ref(window.innerWidth <= 1024);
-
-const handleResize = () => {
-  const compact = window.innerWidth <= 1024;
-  isCompact.value = compact;
-  sharedState.dashboardSidebarOpen = !compact;
-};
-
-const closeSidebar = () => {
-  sharedState.dashboardSidebarOpen = false;
-};
-
-onMounted(() => {
-  window.addEventListener("resize", handleResize);
-  handleResize();
-});
-
-onUnmounted(() => {
-  if (refreshInterval) clearInterval(refreshInterval);
-});
-
-const currentUser = computed(() => sharedState.currentUser);
-const systemStats = computed(() => sharedState.systemStats);
-
 const showConfirm = ref(false);
 const pendingId = ref(null);
 const pendingAction = ref("");
-const focusedIndex = ref(-1);
-
+const actionClass = computed(() => {
+  if (pendingAction.value === "start") return "success";
+  if (pendingAction.value === "restart") return "warning";
+  if (pendingAction.value === "stop" || pendingAction.value === "remove")
+    return "error";
+  return "";
+});
 let refreshInterval = null;
+
+const runningCount = computed(
+  () => containers.value.filter((c) => c.state === "running").length,
+);
+const stoppedCount = computed(
+  () => containers.value.filter((c) => c.state !== "running").length,
+);
+const imagesCount = computed(
+  () => new Set(containers.value.map((c) => c.image)).size,
+);
 
 const filteredContainers = computed(() => {
   return containers.value.filter(
@@ -384,92 +314,10 @@ const filteredContainers = computed(() => {
   );
 });
 
-const activeViewers = computed(() => {
-  if (!isSplitMode.value) return selectedContainers.value.slice(-1);
-  return selectedContainers.value.slice(-2);
-});
+const getContainerById = (id) => containers.value.find((c) => c.id === id);
 
-const isSelected = (id) => selectedContainers.value.some((c) => c.id === id);
-
-const navigateDown = () => {
-  if (focusedIndex.value < filteredContainers.value.length - 1)
-    focusedIndex.value++;
-};
-
-const navigateUp = () => {
-  if (focusedIndex.value > 0) focusedIndex.value--;
-};
-
-const selectFocused = () => {
-  if (
-    focusedIndex.value >= 0 &&
-    focusedIndex.value < filteredContainers.value.length
-  ) {
-    selectContainer(filteredContainers.value[focusedIndex.value]);
-  }
-};
-
-const selectContainer = (c) => {
-  const max = isSplitMode.value ? 2 : 1;
-  if (isSelected(c.id)) {
-    selectedContainers.value = selectedContainers.value.filter(
-      (sc) => sc.id !== c.id,
-    );
-  } else {
-    selectedContainers.value.push(c);
-    if (selectedContainers.value.length > max) {
-      selectedContainers.value.shift();
-    }
-  }
-  updateUrl();
-};
-
-watch(isSplitMode, (newVal) => {
-  const max = newVal ? 2 : 1;
-  if (selectedContainers.value.length > max) {
-    selectedContainers.value = selectedContainers.value.slice(-max);
-  }
-  updateUrl();
-});
-
-watch(() => sharedState.searchQuery, () => {
-  focusedIndex.value = -1;
-});
-
-const getStatColor = (val) => {
-  if (val > 80) return "var(--error)";
-  if (val > 50) return "var(--warning)";
-  return "var(--accent)";
-};
-
-const formatNumber = (val, decimals = 1) => {
-  const num = parseFloat(val);
-  return isNaN(num) ? (0).toFixed(decimals) : num.toFixed(decimals);
-};
-
-// Global stats are now handled by sharedState in MainLayout
-
-const formatBytes = (bytes) => {
-  if (bytes === 0) return "0B";
-  const k = 1024;
-  const sizes = ["B", "KB", "MB", "GB", "TB"];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + sizes[i];
-};
-
-const removeContainer = (c) => {
-  selectedContainers.value = selectedContainers.value.filter(
-    (sc) => sc.id !== c.id,
-  );
-  updateUrl();
-};
-
-const updateUrl = () => {
-  const ids = selectedContainers.value.map((c) => c.id).join(",");
-  const query = { ...route.query, c: ids };
-  if (isSplitMode.value) query.split = "true";
-  else delete query.split;
-  router.replace({ query });
+const goToLogs = (id) => {
+  router.push({ path: "/logs", query: { c: id } });
 };
 
 const fetchContainers = async () => {
@@ -480,20 +328,11 @@ const fetchContainers = async () => {
     });
     if (res.ok) {
       containers.value = await res.json();
-      if (route.query.split === "true") isSplitMode.value = true;
-      const urlIds = route.query.c?.split(",") || [];
-      selectedContainers.value = containers.value.filter((c) =>
-        urlIds.includes(c.id),
-      );
-    } else if (res.status === 401) {
-      logout();
     }
   } catch (err) {
     console.error(err);
   }
 };
-
-// Toast notifications are handled by sharedState globally
 
 const containerAction = async (id, action) => {
   try {
@@ -505,28 +344,14 @@ const containerAction = async (id, action) => {
       headers: { Authorization: `Bearer ${token}` },
       body: formData,
     });
-    if (!res.ok) {
-      const data = await res.json();
-      showToast(
-        "Access Denied",
-        data.error || "You do not have permission to perform this action.",
-        "error",
-      );
+    if (res.ok) {
+      showToast("Success", `Action ${action} executed.`, "success");
+      fetchContainers();
     } else {
-      showToast(
-        "Action Successful",
-        `Container successfully sent ${action} command.`,
-        "success",
-      );
+      showToast("Error", "Action failed.", "error");
     }
-    fetchContainers();
   } catch (err) {
     console.error(err);
-    showToast(
-      "System Error",
-      "An unexpected error occurred while communicating with the engine.",
-      "error",
-    );
   }
 };
 
@@ -540,788 +365,316 @@ const executeAction = () => {
   if (pendingId.value && pendingAction.value) {
     containerAction(pendingId.value, pendingAction.value);
     showConfirm.value = false;
-    pendingId.value = null;
-    pendingAction.value = "";
   }
 };
 
-const logout = () => {
-  secureStorage.removeItem("token");
-  secureStorage.removeItem("user");
-  router.push("/login");
-};
-
-// Password management is now handled globally by MainLayout
-
-onMounted(async () => {
+onMounted(() => {
   fetchContainers();
   refreshInterval = setInterval(fetchContainers, 5000);
 });
 
 onUnmounted(() => {
+  if (refreshInterval) clearInterval(refreshInterval);
 });
-
-watch(
-  () => route.query.c,
-  () => {
-    if (containers.value.length > 0) {
-      const urlIds = route.query.c?.split(",") || [];
-      selectedContainers.value = containers.value.filter((c) =>
-        urlIds.includes(c.id),
-      );
-    }
-  },
-);
 </script>
 
 <style scoped>
-.dashboard-page {
-  flex: 1;
-  display: flex;
-  overflow: hidden;
-  min-height: 0;
-}
-
-.dashboard-page {
-  flex: 1;
+.dashboard-container {
   display: flex;
   flex-direction: column;
-  overflow: hidden;
-  min-height: 0;
+  gap: 1.25rem;
+  padding-bottom: 1.5rem;
 }
 
-.main-content {
-  flex: 1;
+.k8s-banner {
+  padding: 1.5rem 2rem;
+  border-radius: 20px;
+  background: rgba(245, 158, 11, 0.05);
+  border: 1px solid rgba(245, 158, 11, 0.2);
+  color: #f59e0b;
+}
+
+.banner-content {
   display: flex;
-  overflow: hidden;
-  background: var(--bg-main);
-  min-height: 0;
+  align-items: center;
+  gap: 1.5rem;
 }
 
-.sidebar {
-  width: 340px;
-  min-width: 340px;
-  height: calc(100vh - 72px);
+.banner-text h4 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 900;
+}
+
+.banner-text p {
+  margin: 0.2rem 0 0;
+  font-size: 0.85rem;
+  font-weight: 500;
+  opacity: 0.8;
+}
+
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+  align-items: start;
+  transition: all 0.4s cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.dashboard-grid.full-width {
+  grid-template-columns: 1fr;
+}
+
+.grid-section {
   display: flex;
   flex-direction: column;
-  border-right: 1px solid var(--border);
-  background: var(--bg-sidebar);
-  position: relative;
-  z-index: 10;
-  overflow: hidden;
-  transition:
-    width 0.3s cubic-bezier(0.23, 1, 0.32, 1),
-    min-width 0.3s cubic-bezier(0.23, 1, 0.32, 1);
-}
-.sidebar.collapsed {
-  width: 0;
+  gap: 1.25rem;
   min-width: 0;
-  border-right: none;
 }
 
-.sidebar-header {
-  padding: 1.5rem 1.5rem 1rem;
+.section-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
 }
-.sidebar-header h2 {
-  font-size: 0.7rem;
-  font-weight: 900;
-  color: var(--text-mute);
-  letter-spacing: 0.2em;
+
+.section-header h3 {
+  font-size: 1.1rem;
+  font-weight: 950;
+  color: var(--text-main);
+  letter-spacing: -0.02em;
   margin: 0;
 }
 
-.mode-toggle {
-  width: 32px;
-  height: 32px;
-  border-radius: 9px;
-  border: 1px solid var(--border);
-  background: rgba(255, 255, 255, 0.03);
-  color: var(--text-mute);
-  cursor: pointer;
-  transition: all 0.2s;
+.search-box {
   display: flex;
   align-items: center;
-  justify-content: center;
-}
-.mode-toggle:hover {
-  border-color: var(--text-mute);
-  color: var(--text-main);
-  background: rgba(255, 255, 255, 0.06);
-}
-.mode-toggle.active {
-  background: var(--accent);
-  color: #fff;
-  border-color: var(--accent);
-  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
-}
-
-.container-list {
-  flex: 1;
-  overflow-y: auto;
-  padding: 0.5rem 1.5rem 2rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-.container-card {
-  display: flex;
-  align-items: center;
-  gap: 1.25rem;
-  padding: 1.35rem 1rem;
-  border-radius: 20px;
-  cursor: pointer;
-  border: 1px solid var(--border);
-  background: var(--bg-card);
-  transition: all 0.3s cubic-bezier(0.23, 1, 0.32, 1);
-  box-shadow: 0 4px 12px var(--shadow);
-  position: relative;
-  overflow: hidden;
-}
-.container-card:hover {
-  background: var(--card-hover);
-  border-color: var(--border);
-  transform: translateY(-2px);
-  box-shadow: 0 12px 24px -10px var(--shadow);
-}
-.container-card:hover .c-name {
-  color: var(--accent);
-}
-.container-card.selected {
-  background: var(--bg-main);
-  border-color: var(--accent);
-  box-shadow: 0 10px 30px -10px rgba(99, 102, 241, 0.3);
-}
-.container-card.selected::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 5px;
-  background: var(--accent);
-  box-shadow: 2px 0 10px rgba(99, 102, 241, 0.5);
-}
-
-.card-status {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  flex-shrink: 0;
-  border: 2px solid var(--bg-sidebar);
-  box-shadow: 0 0 8px rgba(0, 0, 0, 0.1);
-}
-.card-status.running {
-  background: var(--success);
-  box-shadow: 0 0 10px var(--success);
-}
-.card-status.exited {
-  background: var(--text-mute);
-}
-
-.card-info {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  padding-right: 0.75rem;
-  transition: all 0.3s;
-}
-.c-name {
-  font-size: 0.88rem;
-  font-weight: 900;
-  color: var(--text-main);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  letter-spacing: -0.03em;
-  transition: all 0.2s;
-}
-.c-image {
-  font-size: 0.65rem;
-  color: var(--text-dim);
-  font-family: var(--font-mono);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  margin-top: 0.15rem;
-  opacity: 0.4;
-  font-weight: 500;
-  transition: all 0.2s;
-}
-
-.container-card:hover .c-name,
-.container-card:hover .c-image {
-  opacity: 1;
-}
-
-.card-actions {
-  display: flex;
-  gap: 0.5rem;
-  opacity: 0;
-  width: 0;
-  overflow: hidden;
-  transform: translateX(10px);
-  transition: all 0.3s cubic-bezier(0.23, 1, 0.32, 1);
-  padding: 5px 0px;
-}
-.container-card:hover .card-actions {
-  opacity: 1;
-  width: auto;
-  transform: translateX(0);
-}
-.action-btn {
-  width: 24px;
-  height: 24px;
-  border-radius: 7px;
-  border: 1px solid var(--border);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--bg-sidebar);
-  color: var(--text-mute);
-  cursor: pointer;
-  transition: all 0.2s;
-}
-.action-btn svg {
-  width: 12px;
-  height: 12px;
-}
-.action-btn:hover {
-  background: var(--bg-card);
-  color: var(--text-main);
-  border-color: var(--text-dim);
-  transform: translateY(-2px);
-}
-.action-btn.start:hover {
-  color: var(--success);
-  border-color: var(--success);
-  background: rgba(16, 185, 129, 0.1);
-}
-.action-btn.stop:hover,
-.action-btn.remove:hover {
-  color: var(--error);
-  border-color: var(--error);
-  background: rgba(239, 68, 68, 0.1);
-}
-.action-btn.restart:hover {
-  color: var(--accent);
-  border-color: var(--accent);
-  background: rgba(99, 102, 241, 0.1);
-}
-
-.viewer-area {
-  flex: 1;
-  background: var(--bg-main);
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  position: relative;
-  min-height: 0;
-}
-
-.sidebar-open-btn {
-  display: none;
-}
-
-.viewer-grid {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  min-height: 0;
-}
-.viewer-grid.split-view {
-  flex-direction: row;
-}
-.viewer-grid.split-view > * {
-  flex: 1;
-  min-width: 0;
-  border-right: 1px solid var(--border);
-}
-.viewer-grid.split-view > *:last-child {
-  border-right: none;
-}
-
-.standby-view {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 4rem 2rem;
-  z-index: 1;
-  text-align: center;
-}
-.standby-content {
-  max-width: 760px;
-  animation: fadeIn 0.8s ease-out;
-}
-.standby-icon {
-  color: var(--accent);
-  margin-bottom: 1.75rem;
-  opacity: 0.18;
-  transform: scale(1.15);
-}
-.standby-view h2 {
-  font-size: 1.65rem;
-  font-weight: 900;
-  color: var(--text-main);
-  margin-bottom: 0.6rem;
-  letter-spacing: -0.04em;
-}
-.standby-view p {
-  color: var(--text-dim);
-  font-size: 0.9rem;
-  font-weight: 500;
-  line-height: 1.6;
-}
-
-.standby-stats-card {
-  margin: 3rem auto 0;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  padding: 2.25rem;
-  border-radius: 28px;
-  border: 1px solid var(--border);
-  gap: 2rem;
-  background: var(--glass-bg);
-  backdrop-filter: blur(20px);
-  box-shadow: 0 30px 80px -25px var(--shadow);
-  width: 100%;
-  max-width: 760px;
-}
-
-.s-card-item {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  text-align: left;
-}
-
-.s-card-label {
-  font-size: 0.62rem;
-  font-weight: 900;
-  color: var(--text-mute);
-  letter-spacing: 0.18em;
-}
-
-.s-card-main {
-  display: flex;
-  flex-direction: column;
   gap: 0.6rem;
-}
-
-.s-card-value {
-  font-size: 1rem;
-  font-weight: 800;
-  color: var(--text-dim);
-  font-family: 'JetBrains Mono', monospace;
-}
-
-.s-card-value.highlight {
-  color: var(--text-main);
-  font-size: 2rem;
-}
-
-.highlight {
-  color: var(--text-main);
-  font-size: 2rem;
-}
-
-.unit {
-  font-size: 0.82rem;
-  color: var(--text-mute);
-}
-
-.s-card-bar {
-  width: 100%;
-  height: 6px;
-  background: var(--bg-input);
+  padding: 0.5rem 0.85rem;
   border-radius: 10px;
-  overflow: hidden;
-}
-
-.s-bar-fill {
-  height: 100%;
-  transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.s-bar-fill.accent {
-  background: var(--accent);
-}
-
-@media (max-width: 768px) {
-  .standby-stats-card {
-    flex-direction: column;
-    padding: 1.5rem;
-    gap: 1.25rem;
-    width: 100%;
-    margin-top: 1.5rem;
-  }
-  .s-card-divider {
-    width: 100% !important;
-    height: 1px !important;
-  }
-  .standby-view h2 {
-    font-size: 1.45rem;
-  }
-}
-
-.s-card-item {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-.s-card-label {
-  font-size: 0.62rem;
-  font-weight: 900;
-  color: var(--text-mute);
-  text-transform: uppercase;
-  letter-spacing: 0.15em;
-}
-.s-card-value {
-  font-size: 1rem;
-  font-weight: 800;
-  color: var(--text-dim);
-  font-family: var(--font-mono);
-  letter-spacing: -0.05em;
-}
-.s-card-divider {
-  width: 1px;
-  height: 60px;
-  background: var(--border);
-}
-
-/* Modal Perfection */
-.modal-overlay {
-  position: fixed;
-  inset: 0;
-  background: var(--bg-main);
-  background-image:
-    radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.1) 0px, transparent 50%),
-    radial-gradient(at 100% 100%, rgba(16, 185, 129, 0.1) 0px, transparent 50%);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 5000;
-  overflow-y: auto;
-  padding: 2rem 1rem;
-}
-
-[data-theme="dark"] .modal-overlay {
-  background: rgba(0, 0, 0, 0.85);
-}
-
-.modal-content {
-  width: 520px;
-  padding: 3rem;
-  border-radius: 32px;
+  background: var(--bg-input);
   border: 1px solid var(--border);
-  background: var(--bg-sidebar);
-  text-align: center;
-  box-shadow: 0 40px 100px -20px var(--shadow);
-  position: relative;
-  overflow: hidden;
-}
-.modal-content::after {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 4px;
-  background: linear-gradient(
-    to right,
-    transparent,
-    var(--accent),
-    transparent
-  );
+  width: 180px;
 }
 
-.modal-icon {
-  width: 72px;
-  height: 72px;
-  border-radius: 22px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin: 0 auto 1.5rem;
-}
-.modal-icon svg {
-  width: 36px;
-  height: 36px;
-}
-
-.modal-content h3 {
-  font-size: 1.5rem;
-  font-weight: 950;
-  margin-bottom: 0.75rem;
-  color: var(--text-main);
-  letter-spacing: -0.03em;
-}
-.modal-content p {
-  color: var(--text-dim);
-  font-size: 0.95rem;
-  line-height: 1.5;
-  margin-bottom: 2rem;
-  font-weight: 500;
-}
-
-.modal-footer {
-  display: flex;
-  gap: 1.5rem;
-}
-.modal-btn {
-  flex: 1;
-  padding: 0.9rem;
-  border-radius: 14px;
-  font-weight: 800;
-  font-size: 0.9rem;
-  cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.23, 1, 0.32, 1);
+.search-box input {
+  background: transparent;
   border: none;
-}
-.modal-btn.cancel {
-  background: var(--bg-input);
   color: var(--text-main);
-  border: 1px solid var(--border);
-}
-.modal-btn.cancel:hover {
-  background: var(--bg-card);
-  transform: translateY(-2px);
-}
-
-.confirm-start {
-  background: var(--success);
-  color: #fff;
-  box-shadow: 0 15px 30px -5px rgba(16, 185, 129, 0.4);
-}
-.confirm-stop,
-.confirm-remove {
-  background: var(--error);
-  color: #fff;
-  box-shadow: 0 15px 30px -5px rgba(239, 68, 68, 0.4);
-}
-.confirm-restart {
-  background: var(--accent);
-  color: #fff;
-  box-shadow: 0 15px 30px -5px rgba(99, 102, 241, 0.4);
-}
-
-.modal-btn:hover:not(.cancel) {
-  transform: translateY(-4px);
-  filter: brightness(1.1);
-}
-.modal-btn.confirm {
-  background: var(--accent);
-  color: #fff;
-  box-shadow: 0 15px 30px -5px rgba(99, 102, 241, 0.4);
-}
-
-.modal-actions {
-  display: flex;
-  gap: 1rem;
-  margin-top: 0.5rem;
-}
-
-.glass-input {
+  font-size: 0.75rem;
+  font-weight: 700;
   width: 100%;
-  padding: 1rem 1.25rem;
-  background: var(--bg-input);
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  color: var(--text-main);
-  font-size: 1rem;
-  font-weight: 600;
-  transition: all 0.2s;
   outline: none;
 }
-.glass-input:focus {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1);
-  background: var(--bg-main);
-}
-.glass-input::placeholder {
+
+.search-box svg {
   color: var(--text-mute);
-  font-weight: 500;
 }
 
-.input-group {
-  margin-bottom: 1rem;
+.premium-table tr {
+  cursor: pointer;
+  transition: all 0.2s;
 }
-.input-error {
-  color: var(--error);
-  font-size: 0.8rem;
-  font-weight: 700;
-  margin-top: 0.5rem;
+
+.premium-table tr.active td {
+  background: rgba(99, 102, 241, 0.05);
+  color: var(--accent);
 }
-.force-text-new {
+
+.action-group {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.icon-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg-input);
   color: var(--text-dim);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.icon-btn:hover {
+  background: var(--bg-card);
+  color: var(--text-main);
+  border-color: var(--accent);
+}
+
+.icon-btn.start:hover { color: var(--success); border-color: var(--success); }
+.icon-btn.stop:hover { color: var(--error); border-color: var(--error); }
+.icon-btn.restart:hover { color: var(--warning); border-color: var(--warning); }
+.icon-btn.logs:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+  box-shadow: 0 4px 12px rgba(var(--accent-rgb), 0.2);
+}
+
+
+
+.name-cell {
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+}
+.container-title {
+  font-weight: 850;
+  color: var(--text-main);
   font-size: 0.95rem;
-  font-weight: 500;
+}
+.container-id {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.7rem;
+  color: var(--text-mute);
+  font-weight: 700;
 }
 
-.fade-enter-active,
-.fade-leave-active {
-  transition: all 0.4s cubic-bezier(0.23, 1, 0.32, 1);
+.image-cell {
+  display: flex;
+  flex-direction: column;
+  text-align: left;
 }
-.fade-enter-from,
-.fade-leave-to {
-  opacity: 0;
-  transform: scale(0.95);
+.image-name {
+  font-weight: 800;
+  color: var(--text-main);
+  font-size: 0.85rem;
 }
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(15px) scale(0.98);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-}
-
-@media (max-width: 1200px) {
-  .sidebar {
-    width: 280px;
-  }
-  .main-header {
-    padding: 0 1.5rem;
-  }
+.image-tag {
+  font-size: 0.7rem;
+  color: var(--text-mute);
+  font-weight: 700;
+  background: var(--bg-input);
+  padding: 1px 6px;
+  border-radius: 4px;
+  width: fit-content;
+  margin-top: 2px;
 }
 
-@media (max-width: 1024px) {
-  .app-container {
-    height: 100%;
-    min-height: 0;
-    overflow: hidden;
-  }
+.status-pill {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.7rem;
+  font-weight: 950;
+  padding: 0.4rem 0.8rem;
+  border-radius: 10px;
+  width: fit-content;
+  border: 1px solid transparent;
+}
 
-  .main-content {
-    height: 100%;
-    overflow: hidden;
-  }
+.pulse-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
 
-  .sidebar {
-    position: fixed;
-    top: 72px;
-    left: 0;
-    bottom: 0;
-    width: min(320px, 88vw) !important;
-    z-index: 2000;
-    transform: translateX(-100%);
-    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  }
+.is-running {
+  background: rgba(var(--success-rgb), 0.1);
+  color: var(--success);
+  border-color: rgba(var(--success-rgb), 0.2);
+}
+.is-running .pulse-dot {
+  background: var(--success);
+  box-shadow: 0 0 8px var(--success);
+  animation: pulse-mini 2s infinite;
+}
 
-  .sidebar.collapsed {
-    transform: translateX(-100%);
-    width: min(320px, 88vw) !important;
-  }
+.is-stopped {
+  background: rgba(var(--error-rgb), 0.1);
+  color: var(--error);
+  border-color: rgba(var(--error-rgb), 0.2);
+}
+.is-stopped .pulse-dot {
+  background: var(--error);
+}
 
-  .sidebar:not(.collapsed) {
-    transform: translateX(0);
-    box-shadow: 0 30px 80px -24px rgba(15, 23, 42, 0.35);
-  }
+@keyframes pulse-mini {
+  0% { transform: scale(0.95); opacity: 1; }
+  50% { transform: scale(1.1); opacity: 0.7; }
+  100% { transform: scale(0.95); opacity: 1; }
+}
 
-  .card-actions {
-    opacity: 1 !important;
-    width: auto !important;
-    transform: none !important;
-    gap: 0.75rem;
+@media (max-width: 850px) {
+  .summary-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 1rem !important;
   }
-
-  .action-btn {
-    width: 32px;
-    height: 32px;
+  .dashboard-grid {
+    grid-template-columns: 1fr !important;
+    gap: 1.5rem !important;
   }
-
-  .action-btn svg {
-    width: 16px;
-    height: 16px;
-  }
-
-  .viewer-area {
-    height: 100%;
-    overflow: hidden;
-    display: flex;
+  .section-header {
     flex-direction: column;
-    min-height: 0;
+    align-items: flex-start;
+    gap: 1.25rem;
   }
-
-  .sidebar-open-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    margin: 0.75rem 0.75rem 0;
-    align-self: flex-start;
-    padding: 0.7rem 1rem;
-    border-radius: 999px;
+  .header-actions {
+    width: 100%;
+  }
+  .search-box {
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+  .premium-table thead {
+    display: none;
+  }
+  .premium-table tbody tr {
+    display: block;
+    padding: 1.25rem;
+    margin-bottom: 1.25rem;
+    background: var(--bg-card);
     border: 1px solid var(--border);
-    background: var(--bg-sidebar);
-    color: var(--text-main);
-    font-size: 0.8rem;
-    font-weight: 850;
-    box-shadow: 0 10px 30px var(--shadow);
-    z-index: 5;
+    border-radius: 20px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
   }
-
-  .viewer-grid {
-    flex: 1;
-    height: auto !important;
+  .premium-table tbody tr td {
     display: flex;
     flex-direction: column;
-    min-height: 0;
+    padding: 0.6rem 0;
+    border: none;
+    text-align: left !important;
+    gap: 0.35rem;
   }
-
-  .viewer-grid.split-view > * {
-    height: calc((100vh - 72px - 2rem) / 2) !important;
-    min-height: 0;
-  }
-
-  .viewer-grid:not(.split-view) > * {
-    height: 100% !important;
-    min-height: 0;
-    flex: 1;
-  }
-
-  .header-right {
-    gap: 0.5rem;
-  }
-
-  .header-stats-group {
-    display: none;
-  }
-
-  .search-wrapper {
-    max-width: 180px;
-  }
-
-  .user-menu {
-    right: -1rem;
-    width: calc(100vw - 2rem);
-    max-width: 280px;
-  }
-}
-
-@media (max-width: 600px) {
-  .search-wrapper {
-    display: none;
-  }
-  .header-left {
-    gap: 1rem;
-  }
-
-  .sidebar {
-    top: 72px;
+  .premium-table tbody tr td::before {
+    content: attr(data-label);
+    display: block;
+    font-size: 0.65rem;
+    font-weight: 800;
+    color: var(--text-mute);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
   }
 }
 
 @media (max-width: 480px) {
-  .header-right .nav-icon-btn:not(:last-child) {
-    display: none;
+  .summary-grid {
+    grid-template-columns: 1fr !important;
+  }
+  .k8s-banner {
+    padding: 1rem;
+  }
+  .banner-content {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+  .stat-value {
+    font-size: 1.5rem;
+  }
+  .stat-label {
+    font-size: 0.65rem;
+  }
+  .premium-stat-card {
+    padding: 0.85rem 1rem;
+    gap: 0.75rem;
+  }
+  .section-header h3 {
+    font-size: 1rem;
   }
 }
 </style>

@@ -1,241 +1,420 @@
 <template>
   <div class="app-layout">
-    <header class="main-header glass">
-      <div class="header-left">
-        <!-- Back Button for non-dashboard pages -->
-        <router-link
-          v-if="route.path !== '/dashboard'"
-          to="/dashboard"
-          class="back-btn-header"
-          data-tooltip="Back to Dashboard"
+    <div
+      v-if="isMobileMenuOpen"
+      class="mobile-overlay"
+      @click="isMobileMenuOpen = false"
+    ></div>
+
+    <!-- Redesigned Sidebar -->
+    <aside
+      v-if="!isLogPage || isMobileMenuOpen"
+      :class="[
+        'main-sidebar',
+        { 'mobile-open': isMobileMenuOpen, collapsed: isSidebarCollapsed },
+      ]"
+    >
+      <div class="sidebar-header">
+        <router-link to="/dashboard" class="sidebar-logo">
+          <img src="/logo-icon.png" alt="DockLog" class="logo-img-sidebar" />
+          <span class="logo-text">DockLog</span>
+        </router-link>
+
+        <button
+          class="sidebar-toggle-btn desktop-only"
+          @click="isSidebarCollapsed = !isSidebarCollapsed"
         >
           <svg
             viewBox="0 0 24 24"
             width="18"
             height="18"
+            fill="none"
             stroke="currentColor"
             stroke-width="3"
-            fill="none"
           >
-            <line x1="19" y1="12" x2="5" y2="12"></line>
-            <polyline points="12 19 5 12 12 5"></polyline>
-          </svg>
-        </router-link>
-
-        <router-link to="/dashboard" class="logo-link">
-          <div class="logo-area">
-            <div class="logo-box">
-              <img src="/logo-icon.png?v=2" alt="DockLog" />
-            </div>
-            <h1>DockLog</h1>
-          </div>
-        </router-link>
-
-        <button
-          v-if="route.path !== '/health'"
-          class="nav-icon-btn glass dashboard-menu-btn"
-          @click="toggleDashboardSidebar"
-          :data-tooltip="
-            route.path === '/dashboard'
-              ? 'Toggle Resources'
-              : route.path === '/admin'
-                ? 'Toggle Admin Menu'
-                : 'Open Menu'
-          "
-        >
-          <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2.5"
-          >
-            <line x1="4" y1="7" x2="20" y2="7"></line>
-            <line x1="4" y1="12" x2="20" y2="12"></line>
-            <line x1="4" y1="17" x2="20" y2="17"></line>
+            <line
+              v-if="!isSidebarCollapsed"
+              x1="3"
+              y1="12"
+              x2="21"
+              y2="12"
+            ></line>
+            <line
+              v-if="!isSidebarCollapsed"
+              x1="3"
+              y1="6"
+              x2="21"
+              y2="6"
+            ></line>
+            <line
+              v-if="!isSidebarCollapsed"
+              x1="3"
+              y1="18"
+              x2="21"
+              y2="18"
+            ></line>
+            <path v-else d="M9 18l6-6-6-6"></path>
           </svg>
         </button>
 
-        <div class="divider"></div>
-
-        <!-- Global Search (only on dashboard) -->
-        <div v-if="route.path === '/dashboard'" class="search-wrapper glass">
+        <!-- Mobile Close Button -->
+        <button
+          class="sidebar-close-btn mobile-only"
+          @click="isMobileMenuOpen = false"
+        >
           <svg
-            class="search-icon"
             viewBox="0 0 24 24"
+            width="20"
+            height="20"
             fill="none"
             stroke="currentColor"
             stroke-width="2.5"
           >
-            <circle cx="11" cy="11" r="8"></circle>
-            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
           </svg>
-          <input
-            type="text"
-            v-model="sharedState.searchQuery"
-            placeholder="Search resources..."
-            class="search-input"
-          />
+        </button>
+      </div>
+
+      <!-- Provider Toggle -->
+      <div class="provider-toggle-wrap">
+        <div class="provider-toggle glass">
+          <button
+            @click="sharedState.activeProvider = 'docker'"
+            :class="[
+              'p-toggle-btn',
+              { active: sharedState.activeProvider === 'docker' },
+            ]"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              width="14"
+              height="14"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="3"
+            >
+              <path d="M22 12h-4l-3 9L9 3l-3 9H2"></path>
+            </svg>
+            Docker
+          </button>
+          <button
+            @click="sharedState.activeProvider = 'kubernetes'"
+            :class="[
+              'p-toggle-btn',
+              { active: sharedState.activeProvider === 'kubernetes' },
+            ]"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              width="14"
+              height="14"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="3"
+            >
+              <path
+                d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"
+              ></path>
+            </svg>
+            K8s
+          </button>
+          <div class="toggle-slider" :class="sharedState.activeProvider"></div>
         </div>
       </div>
 
-      <div class="header-right">
-        <div v-if="sharedState.systemStats" class="header-stats-group">
-          <div class="stat-box glass">
-            <div class="stat-label">SYS CPU</div>
-            <div
-              class="stat-value"
-              :style="{ color: getStatColor(sharedState.systemStats.cpu) }"
-            >
-              {{ Number(sharedState.systemStats.cpu || 0).toFixed(1) }}%
-            </div>
-          </div>
-          <div class="stat-box glass">
-            <div class="stat-label">SYS MEM</div>
-            <div class="stat-value">
-              {{ Number(sharedState.systemStats.usedMemGB || 0).toFixed(1) }} GB
-            </div>
-          </div>
-        </div>
-
-        <button
-          class="nav-icon-btn glass desktop-only"
-          @click="toggleTheme"
-          data-tooltip="Toggle Theme"
+      <nav class="menu-groups">
+        <router-link
+          to="/dashboard"
+          class="nav-link"
+          :class="{ active: route.path === '/dashboard' }"
         >
           <svg
-            v-if="sharedState.theme === 'dark'"
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
-            stroke-width="2"
+            stroke-width="2.5"
           >
-            <circle cx="12" cy="12" r="5"></circle>
-            <line x1="12" y1="1" x2="12" y2="3"></line>
-            <line x1="12" y1="21" x2="12" y2="23"></line>
-            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
-            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
-            <line x1="1" y1="12" x2="3" y2="12"></line>
-            <line x1="21" y1="12" x2="23" y2="12"></line>
-            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
-            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+            <rect x="3" y="3" width="7" height="7"></rect>
+            <rect x="14" y="3" width="7" height="7"></rect>
+            <rect x="14" y="14" width="7" height="7"></rect>
+            <rect x="3" y="14" width="7" height="7"></rect>
           </svg>
+          Dashboard
+        </router-link>
+        <router-link
+          to="/containers"
+          class="nav-link"
+          :class="{ active: route.path === '/containers' }"
+        >
           <svg
-            v-else
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
-            stroke-width="2"
+            stroke-width="2.5"
           >
-            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+            <path
+              d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"
+            ></path>
           </svg>
-        </button>
+          Containers
+        </router-link>
+
+        <router-link
+          to="/logs"
+          class="nav-link"
+          :class="{ active: route.path === '/logs' }"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2.5"
+          >
+            <line x1="8" y1="6" x2="21" y2="6"></line>
+            <line x1="8" y1="12" x2="21" y2="12"></line>
+            <line x1="8" y1="18" x2="21" y2="18"></line>
+            <line x1="3" y1="6" x2="3.01" y2="6"></line>
+            <line x1="3" y1="12" x2="3.01" y2="12"></line>
+            <line x1="3" y1="18" x2="3.01" y2="18"></line>
+          </svg>
+          Logs
+        </router-link>
+        <router-link
+          to="/health"
+          class="nav-link"
+          :class="{ active: route.path === '/health' }"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2.5"
+          >
+            <path d="M22 12h-4l-3 9L9 3l-3 9H2"></path>
+          </svg>
+          System Health
+        </router-link>
+
+        <div class="menu-divider"></div>
+
+        <router-link
+          v-if="sharedState.currentUser?.is_admin"
+          to="/admin"
+          class="nav-link"
+          :class="{ active: route.path === '/admin' }"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2.5"
+          >
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+            <circle cx="9" cy="7" r="4"></circle>
+            <polyline points="16 3.13 16 3.13 16 3.13"></polyline>
+            <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+            <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+          </svg>
+          Users
+        </router-link>
+        <router-link
+          v-if="sharedState.currentUser?.is_admin"
+          to="/audit"
+          class="nav-link"
+          :class="{ active: route.path === '/audit' }"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2.5"
+          >
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+          </svg>
+          Audit Logs
+        </router-link>
 
         <div
-          class="user-profile glass"
-          @click.stop="showUserMenu = !showUserMenu"
+          class="menu-divider"
+          v-if="sharedState.currentUser?.is_admin"
+        ></div>
+
+        <router-link
+          to="/settings"
+          class="nav-link"
+          :class="{ active: route.path === '/settings' }"
         >
-          <div class="avatar">{{ userInitial }}</div>
-          <span class="username desktop-only">{{
-            sharedState.currentUser?.username
-          }}</span>
           <svg
-            :class="['chevron', { open: showUserMenu }]"
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
             stroke-width="2.5"
           >
-            <polyline points="6 9 12 15 18 9"></polyline>
+            <circle cx="12" cy="12" r="3"></circle>
+            <path
+              d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"
+            ></path>
           </svg>
+          Settings
+        </router-link>
+      </nav>
 
-          <Transition name="fade">
-            <div
-              v-if="showUserMenu"
-              class="user-menu glass shadow-xl"
-              @click.stop
+      <div class="sidebar-profile">
+        <div class="profile-card">
+          <div class="p-avatar-circle">{{ userInitial }}</div>
+          <div class="p-info">
+            <span class="p-name">{{ sharedState.currentUser?.username }}</span>
+            <span class="p-role">{{
+              sharedState.currentUser?.is_admin
+                ? "ADMINISTRATOR"
+                : "STAFF MEMBER"
+            }}</span>
+          </div>
+        </div>
+        <div class="logout-button">
+          <button class="logout-link" @click="logout">
+            <svg
+              viewBox="0 0 24 24"
+              width="16"
+              height="16"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="3"
             >
-              <div class="menu-header">
-                <span class="role-badge">{{
-                  sharedState.currentUser?.is_admin ? "ADMIN" : "USER"
-                }}</span>
-              </div>
-              <button @click="openPasswordModal" class="menu-item">
-                <svg
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                >
-                  <rect
-                    x="3"
-                    y="11"
-                    width="18"
-                    height="11"
-                    rx="2"
-                    ry="2"
-                  ></rect>
-                  <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
-                </svg>
-                Change Password
-              </button>
-
-              <router-link
-                v-if="sharedState.currentUser?.is_admin"
-                to="/admin"
-                class="menu-item"
-              >
-                <svg
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2.5"
-                >
-                  <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
-                  <circle cx="9" cy="7" r="4"></circle>
-                  <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
-                  <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
-                </svg>
-                Manage Users
-              </router-link>
-
-              <router-link
-                v-if="sharedState.currentUser?.is_admin"
-                to="/health"
-                class="menu-item"
-              >
-                <svg
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                >
-                  <path d="M22 12h-4l-3 9L9 3l-3 9H2"></path>
-                </svg>
-                System Health
-              </router-link>
-
-              <div class="menu-divider"></div>
-              <button @click="logout" class="menu-item logout">
-                <svg
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                >
-                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
-                  <polyline points="16 17 21 12 16 7"></polyline>
-                  <line x1="21" y1="12" x2="9" y2="12"></line>
-                </svg>
-                Sign Out
-              </button>
-            </div>
-          </Transition>
+              <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path>
+              <polyline points="10 17 15 12 10 7"></polyline>
+              <line x1="15" y1="12" x2="3" y2="12"></line>
+            </svg>
+            Sign Out
+          </button>
         </div>
       </div>
-    </header>
+    </aside>
 
-    <div class="layout-body">
-      <slot />
+    <div class="layout-main-content">
+      <header class="main-header glass">
+        <div class="header-left">
+          <!-- Mobile Menu Trigger -->
+          <button
+            class="nav-icon-btn mobile-only"
+            v-if="!route.path.startsWith('/logs')"
+            @click="isMobileMenuOpen = true"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              width="24"
+              height="24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2.5"
+            >
+              <line x1="3" y1="12" x2="21" y2="12"></line>
+              <line x1="3" y1="6" x2="21" y2="6"></line>
+              <line x1="3" y1="18" x2="21" y2="18"></line>
+            </svg>
+          </button>
+
+          <router-link
+            to="/dashboard"
+            class="sidebar-logo logs-route hide-mobile"
+            v-if="route.path.startsWith('/logs')"
+          >
+            <img src="/logo-icon.png" alt="DockLog" class="logo-img-sidebar" />
+            <span class="logo-text">DockLog</span>
+          </router-link>
+
+          <!-- Mobile Logo Brand -->
+          <div class="mobile-logo-brand mobile-only">
+            <img src="/logo-icon.png" alt="DockLog" class="m-logo-img" />
+            <span class="m-logo-text">DockLog</span>
+          </div>
+
+          <div class="title-group desktop-only">
+            <h2>{{ route.name || "DockLog" }}</h2>
+          </div>
+        </div>
+
+        <div class="header-right">
+          <div class="system-stats-global desktop-only">
+            <div class="h-stat-global" v-if="sharedState.systemStats">
+              <span class="h-label">SYS CPU</span>
+              <span
+                class="h-value"
+                :style="{
+                  color: getStatColor(sharedState.systemStats.cpu || 0),
+                }"
+              >
+                {{ parseFloat(sharedState.systemStats.cpu || 0).toFixed(2) }}%
+                <small v-if="sharedState.systemStats.cores">
+                  / {{ sharedState.systemStats.cores }} Core{{
+                    sharedState.systemStats.cores > 1 ? "s" : ""
+                  }}
+                </small>
+              </span>
+            </div>
+            <div class="h-stat-global" v-if="sharedState.systemStats">
+              <span class="h-label">SYS MEM</span>
+              <span class="h-value">
+                {{ sharedState.systemStats.memory || "0 / 0" }}
+              </span>
+            </div>
+          </div>
+
+          <button class="nav-icon-btn glass" @click="toggleTheme">
+            <svg
+              v-if="sharedState.theme === 'dark'"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2.5"
+            >
+              <circle cx="12" cy="12" r="5"></circle>
+              <line x1="12" y1="1" x2="12" y2="3"></line>
+              <line x1="12" y1="21" x2="12" y2="23"></line>
+              <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+              <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+              <line x1="1" y1="12" x2="3" y2="12"></line>
+              <line x1="21" y1="12" x2="23" y2="12"></line>
+              <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+              <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+            </svg>
+            <svg
+              v-else
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2.5"
+            >
+              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+            </svg>
+          </button>
+
+          <!-- Global Search -->
+          <div class="search-wrapper glass desktop-only">
+            <svg
+              class="search-icon"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2.5"
+            >
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+            <input
+              type="text"
+              v-model="sharedState.searchQuery"
+              placeholder="Search containers..."
+              class="search-input"
+            />
+          </div>
+        </div>
+      </header>
+
+      <div :class="['layout-body', { 'no-padding': isLogPage }]">
+        <slot />
+      </div>
     </div>
 
     <!-- Global Toast Notification -->
@@ -292,65 +471,75 @@
     </Transition>
 
     <!-- Password Change Modal -->
-    <Transition name="fade">
-      <div v-if="sharedState.showPasswordModal" class="modal-overlay glass">
-        <div class="modal-content glass shadow-2xl">
-          <div class="modal-icon">
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2.5"
-            >
-              <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
-              <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
-            </svg>
-          </div>
-          <h3>
-            {{
-              sharedState.forcePasswordChange
-                ? "Welcome to DockLog"
-                : "Update Security"
-            }}
-          </h3>
-          <p v-if="sharedState.forcePasswordChange" class="force-text-new">
-            For security, please set a new password for your account to
-            continue.
-          </p>
-          <div class="input-group">
-            <input
-              type="password"
-              v-model="newPassword"
-              placeholder="Enter new password"
-              class="glass-input"
-              @input="passwordError = ''"
-            />
-          </div>
-          <div class="input-group">
-            <input
-              type="password"
-              v-model="confirmPassword"
-              placeholder="Confirm new password"
-              class="glass-input"
-              @input="passwordError = ''"
-            />
-            <p v-if="passwordError" class="input-error">{{ passwordError }}</p>
-          </div>
-          <div class="modal-actions">
-            <button
-              v-if="!sharedState.forcePasswordChange"
-              @click="sharedState.showPasswordModal = false"
-              class="modal-btn cancel"
-            >
-              Cancel
-            </button>
-            <button @click="updatePassword" class="modal-btn confirm">
-              Update Password
-            </button>
+    <Teleport to="body">
+      <Transition name="fade">
+        <div v-if="sharedState.showPasswordModal" class="modal-overlay">
+          <div
+            :class="[
+              'modal-content',
+              'shadow-2xl',
+              { 'security-modal': sharedState.forcePasswordChange },
+            ]"
+          >
+            <div class="modal-icon">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2.5"
+              >
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+              </svg>
+            </div>
+            <h3>
+              {{
+                sharedState.forcePasswordChange
+                  ? "Welcome to DockLog"
+                  : "Update Security"
+              }}
+            </h3>
+            <p v-if="sharedState.forcePasswordChange" class="force-text-new">
+              For security, please set a new password for your account to
+              continue.
+            </p>
+            <div class="input-group">
+              <input
+                type="password"
+                v-model="newPassword"
+                placeholder="Enter new password"
+                class="premium-input"
+                @input="passwordError = ''"
+              />
+            </div>
+            <div class="input-group">
+              <input
+                type="password"
+                v-model="confirmPassword"
+                placeholder="Confirm new password"
+                class="premium-input"
+                @input="passwordError = ''"
+              />
+              <p v-if="passwordError" class="input-error">
+                {{ passwordError }}
+              </p>
+            </div>
+            <div class="modal-actions">
+              <button
+                v-if="!sharedState.forcePasswordChange"
+                @click="sharedState.showPasswordModal = false"
+                class="modal-btn cancel"
+              >
+                Cancel
+              </button>
+              <button @click="updatePassword" class="modal-btn confirm">
+                Update Password
+              </button>
+            </div>
           </div>
         </div>
-      </div>
-    </Transition>
+      </Transition>
+    </Teleport>
   </div>
 </template>
 
@@ -368,6 +557,9 @@ import { secureStorage } from "../utils/storage";
 const route = useRoute();
 const router = useRouter();
 const showUserMenu = ref(false);
+const isMobileMenuOpen = ref(false);
+const isSidebarCollapsed = ref(false);
+const isLogPage = computed(() => route.name === "Logs");
 let statsInterval = null;
 let userInterval = null;
 
@@ -393,18 +585,7 @@ const getStatColor = (val) => {
 };
 
 const toggleDashboardSidebar = () => {
-  if (route.path === "/dashboard") {
-    sharedState.dashboardSidebarOpen = !sharedState.dashboardSidebarOpen;
-    return;
-  }
-
-  if (route.path === "/admin") {
-    sharedState.adminSidebarOpen = !sharedState.adminSidebarOpen;
-    return;
-  }
-
-  sharedState.dashboardSidebarOpen = true;
-  router.push("/dashboard");
+  isMobileMenuOpen.value = !isMobileMenuOpen.value;
 };
 
 const logout = () => {
@@ -463,6 +644,13 @@ const handleGlobalClick = () => {
   showUserMenu.value = false;
 };
 
+watch(
+  () => route.path,
+  () => {
+    isMobileMenuOpen.value = false;
+  },
+);
+
 onMounted(async () => {
   window.addEventListener("click", handleGlobalClick);
   const session = await fetchCurrentUser();
@@ -490,7 +678,11 @@ onMounted(async () => {
 });
 
 const handleOnline = () => {
-  showToast("Back Online", "Your internet connection has been restored", "success");
+  showToast(
+    "Back Online",
+    "Your internet connection has been restored",
+    "success",
+  );
 };
 
 const handleOffline = () => {
@@ -517,20 +709,91 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
+.modal-content h3 {
+  margin-bottom: 0.5rem;
+}
+
+.force-text-new {
+  text-align: center;
+  color: var(--text-mute);
+  font-size: 0.9rem;
+  margin-bottom: 2rem;
+  line-height: 1.5;
+}
+
+.input-group {
+  margin-bottom: 1.25rem;
+}
+
+.security-modal .modal-actions {
+  justify-content: center;
+  margin-top: 1.5rem;
+}
 .app-layout {
   height: 100vh;
   display: flex;
-  flex-direction: column;
   overflow: hidden;
+  background: var(--bg-main);
 }
 
-.layout-body {
+.provider-toggle-wrap {
+  padding: 1.25rem 0;
+}
+
+.provider-toggle {
+  display: flex;
+  position: relative;
+  padding: 0.35rem;
+  border-radius: 14px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  gap: 0.25rem;
+}
+
+.p-toggle-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.6rem;
+  border: none;
+  background: transparent;
+  color: var(--text-mute);
+  font-size: 0.75rem;
+  font-weight: 850;
+  cursor: pointer;
+  z-index: 1;
+  transition: all 0.3s;
+}
+
+.p-toggle-btn.active {
+  color: #fff;
+}
+
+.toggle-slider {
+  position: absolute;
+  top: 0.35rem;
+  left: 0.35rem;
+  width: calc(50% - 0.35rem - 0.125rem);
+  height: calc(100% - 0.7rem);
+  background: var(--accent);
+  border-radius: 10px;
+  transition: all 0.4s cubic-bezier(0.23, 1, 0.32, 1);
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+}
+
+.toggle-slider.kubernetes {
+  transform: translateX(100%);
+  margin-left: 0.25rem;
+}
+
+.layout-main-content {
   flex: 1;
   display: flex;
   flex-direction: column;
+  min-width: 0;
   overflow: hidden;
-  position: relative;
-  min-height: 0;
 }
 
 .main-header {
@@ -538,114 +801,50 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 2rem;
-  position: sticky;
-  top: 0;
-  z-index: 2000;
+  padding: 0 2.5rem;
+  background: var(--glass-bg);
+  backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--border);
+  z-index: 100;
 }
 
-.header-left,
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.title-group h2 {
+  font-size: 1.25rem;
+  font-weight: 950;
+  color: var(--text-main);
+  letter-spacing: -0.03em;
+  margin: 0;
+}
+
 .header-right {
   display: flex;
   align-items: center;
   gap: 1.25rem;
-  flex: 1;
-  min-width: 0;
-}
-
-.header-right {
-  justify-content: flex-end;
-  margin-left: auto;
-}
-
-.header-stats-group {
-  display: flex;
-  gap: 1rem;
-}
-
-.stat-box {
-  padding: 0.5rem 1rem;
-  border-radius: 12px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  min-width: 100px;
-}
-
-.stat-label {
-  font-size: 0.65rem;
-  font-weight: 800;
-  color: var(--text-mute);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.stat-value {
-  font-size: 0.9rem;
-  font-weight: 900;
-  font-family: var(--font-mono);
-}
-
-.logo-link {
-  text-decoration: none;
-}
-
-.logo-area {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.logo-box {
-  width: 36px;
-  height: 36px;
-  background: var(--accent);
-  border-radius: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 8px 16px rgba(99, 102, 241, 0.2);
-}
-
-.logo-box img {
-  width: 22px;
-  height: 22px;
-  filter: brightness(0) invert(1);
-}
-
-.logo-area h1 {
-  font-size: 1.25rem;
-  font-weight: 950;
-  color: var(--text-main);
-  letter-spacing: -0.04em;
-  margin: 0;
-}
-
-.divider {
-  width: 1px;
-  height: 24px;
-  background: var(--border);
 }
 
 .search-wrapper {
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  padding: 0.6rem 1rem;
+  padding: 0.7rem 1.25rem;
   border-radius: 14px;
-  width: 280px;
+  width: 320px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
   transition: all 0.3s;
-  min-width: 0;
 }
 
 .search-wrapper:focus-within {
-  width: 320px;
+  width: 360px;
   border-color: var(--accent);
   background: var(--bg-card);
-}
-
-.dashboard-menu-btn {
-  display: none;
+  box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1);
 }
 
 .search-icon {
@@ -658,90 +857,439 @@ onUnmounted(() => {
   background: transparent;
   border: none;
   color: var(--text-main);
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   font-weight: 600;
   width: 100%;
   outline: none;
 }
 
-.back-btn-header {
-  width: 40px;
-  height: 40px;
-  border-radius: 12px;
-  background: var(--bg-input);
+.layout-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1.5rem;
+  scrollbar-width: thin;
+}
+
+.layout-body.no-padding {
+  padding: 0;
+}
+
+/* Redesigned Sidebar Profile Section */
+.sidebar-profile {
+  margin-top: auto;
+  position: relative;
+  background: var(--bg-subtle);
   border: 1px solid var(--border);
+  border-radius: 18px;
+}
+
+.profile-card {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.85rem 1rem;
+  width: 100%;
+  min-width: 0;
+}
+
+.sidebar-profile:hover {
+  background: var(--card-hover);
+  border-color: var(--accent);
+  transform: translateY(-2px);
+  box-shadow: 0 10px 30px var(--shadow);
+}
+
+.p-avatar {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, var(--accent), #4f46e5);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--text-main);
-  transition: all 0.2s;
-  text-decoration: none;
+  font-size: 1rem;
+  font-weight: 900;
+  color: #fff;
+  flex-shrink: 0;
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
 }
 
-.back-btn-header:hover {
-  transform: translateX(-4px);
-  background: var(--bg-card);
-  border-color: var(--accent);
+.p-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
+.p-name {
+  font-size: 0.95rem;
+  font-weight: 850;
+  color: var(--text-main);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  letter-spacing: -0.02em;
+}
+
+.p-role {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--text-mute);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.logout-btn {
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  color: #ef4444;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.logout-btn:hover {
+  background: #ef4444;
+  color: #fff;
+  transform: scale(1.05);
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+}
+
+.chevron {
+  width: 16px;
+  height: 16px;
+  color: var(--text-mute);
+  transition: transform 0.3s cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.chevron.open {
+  transform: rotate(180deg);
+  color: var(--accent);
+}
+
+/* User Menu Overrides for Sidebar Context */
+.user-menu {
+  position: absolute;
+  bottom: calc(100% + 1rem);
+  left: 1rem;
+  right: 1rem;
+  padding: 0.75rem;
+  border-radius: 20px;
+  background: var(--glass-bg);
+  backdrop-filter: blur(20px);
+  border: 1px solid var(--border);
+  box-shadow: 0 20px 50px var(--shadow);
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  border-radius: 12px;
+  color: var(--text-mute);
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-decoration: none;
+  transition: all 0.2s;
+  background: transparent;
+  border: none;
+  width: 100%;
+  cursor: pointer;
+}
+
+.menu-item:hover {
+  background: var(--bg-subtle);
+  color: var(--accent);
+}
+
+.menu-item.logout:hover {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+}
+
+.menu-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 0.1rem 0;
+}
+
+/* Transitions */
+.fade-slide-enter-active,
+.fade-slide-leave-active {
+  transition: all 0.3s cubic-bezier(0.23, 1, 0.32, 1);
+}
+.fade-slide-enter-from {
+  opacity: 0;
+  transform: translateY(10px) scale(0.95);
+}
+.fade-slide-leave-to {
+  opacity: 0;
+  transform: translateY(10px) scale(0.95);
 }
 
 @media (max-width: 1024px) {
   .main-header {
+    padding: 0 1.5rem;
+  }
+
+  .layout-body {
+    padding: 1.5rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .main-header {
+    height: 64px;
     padding: 0 1rem;
-    gap: 0.75rem;
+  }
+  .mobile-logo-brand {
+    gap: 0.5rem;
+  }
+  .m-logo-text {
+    font-size: 0.95rem;
+  }
+  .layout-body {
+    padding: 1rem;
+  }
+  .toast-notification {
+    top: 1rem;
+    right: 1rem;
+    left: 1rem;
+    min-width: 0;
+  }
+  .p-name {
+    font-size: 0.85rem;
+  }
+  .p-role {
+    font-size: 0.6rem;
+  }
+}
+
+@media (max-width: 1024px) {
+  .main-sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    z-index: 2000;
+    transform: translateX(-100%);
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.4s cubic-bezier(0.23, 1, 0.32, 1);
   }
 
-  .dashboard-menu-btn {
+  .main-sidebar.mobile-open {
+    transform: translateX(0);
+    opacity: 1;
+    visibility: visible;
+  }
+
+  .header-center {
+    display: none;
+  }
+
+  .mobile-logo-brand {
     display: flex;
-  }
-
-  .header-left,
-  .header-right {
+    align-items: center;
     gap: 0.75rem;
+    color: var(--text-main);
   }
 
-  .header-stats-group {
-    display: none;
+  .m-logo-icon {
+    width: 32px;
+    height: 32px;
+    background: var(--accent);
+    color: #fff;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 
-  .search-wrapper {
-    width: 220px;
+  .m-logo-text {
+    font-size: 1.1rem;
+    font-weight: 900;
+    letter-spacing: -0.02em;
   }
 
-  .search-wrapper:focus-within {
-    width: 240px;
+  .nav-icon-btn.mobile-only {
+    height: 40px;
+    border-radius: 20%;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .sidebar-close-btn {
+    width: 38px;
+    height: 38px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--border);
+    color: var(--text-mute);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s cubic-bezier(0.23, 1, 0.32, 1);
+  }
+
+  .sidebar-close-btn:hover {
+    background: rgba(239, 68, 68, 0.1);
+    color: var(--error);
+    transform: rotate(90deg);
+  }
+
+  .sidebar-close-btn:active {
+    transform: scale(0.9);
   }
 }
 
-@media (max-width: 900px) {
-  .logo-area h1,
-  .divider {
-    display: none;
-  }
-
-  .header-left {
-    gap: 0.6rem;
-  }
-
-  .search-wrapper {
-    width: 180px;
-  }
-
-  .search-wrapper:focus-within {
-    width: 200px;
-  }
+img.logo-img-sidebar {
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+  background: #fff;
+  border-radius: 20%;
+  border: 1px solid #2b4a64;
 }
 
-@media (max-width: 768px) {
-  .header-left {
-    gap: 0.5rem;
-  }
+img.m-logo-img {
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+  background: #fff;
+  border-radius: 20%;
+  border: 1px solid #2b4a64;
+}
 
-  .search-wrapper {
+/* Premium Toast Notifications */
+.toast-notification {
+  position: fixed;
+  top: 1.5rem;
+  right: 1.5rem;
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  min-width: 320px;
+  max-width: 420px;
+  background: rgba(15, 23, 42, 0.85);
+  backdrop-filter: blur(20px);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+  z-index: 9999;
+}
+
+.toast-notification.success {
+  border-left: 4px solid var(--success);
+}
+
+.toast-notification.error {
+  border-left: 4px solid var(--error);
+}
+
+.toast-icon {
+  margin-top: 0.1rem;
+  flex-shrink: 0;
+}
+
+.toast-notification.success .toast-icon {
+  color: var(--success);
+}
+.toast-notification.error .toast-icon {
+  color: var(--error);
+}
+
+.toast-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.toast-content h4 {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 850;
+  color: #fff;
+}
+
+.toast-content p {
+  margin: 0.25rem 0 0;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--text-mute);
+  line-height: 1.5;
+}
+
+.toast-close {
+  padding: 0.25rem;
+  background: transparent;
+  border: none;
+  color: var(--text-mute);
+  cursor: pointer;
+  transition: all 0.2s;
+  opacity: 0.6;
+}
+
+.toast-close:hover {
+  opacity: 1;
+  color: #fff;
+  transform: scale(1.1);
+}
+
+/* Toast Transitions */
+.slide-up-enter-active,
+.slide-up-leave-active {
+  transition: all 0.4s cubic-bezier(0.23, 1, 0.32, 1);
+}
+.slide-up-enter-from {
+  opacity: 0;
+  transform: translateY(-20px) translateX(20px) scale(0.9);
+}
+.slide-up-leave-to {
+  opacity: 0;
+  transform: translateY(-20px) scale(0.9);
+}
+.system-stats-global {
+  display: flex;
+  gap: 1.5rem;
+  padding-right: 1.5rem;
+}
+
+.h-stat-global {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.h-stat-global .h-label {
+  font-size: 0.65rem;
+  font-weight: 900;
+  color: var(--text-mute);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.h-stat-global .h-value {
+  font-size: 0.85rem;
+  font-weight: 850;
+  color: var(--text-main);
+  font-family: "JetBrains Mono", monospace;
+}
+
+@media (max-width: 1100px) {
+  .system-stats-global {
     display: none;
-  }
-
-  .header-right {
-    gap: 0.5rem;
   }
 }
 </style>
