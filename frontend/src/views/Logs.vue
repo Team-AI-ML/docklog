@@ -143,7 +143,7 @@
           <div v-if="c.state === 'running'" class="stats-peek-inline">
             <div class="peek-stat">
               <span class="p-value" :class="{ 'text-live': activeLiveId === c.id }">
-                {{ (activeLiveId === c.id ? liveStats.cpu : c.cpu)?.toFixed(1) || 0 }}%
+                {{ (activeLiveId === c.id ? liveStats.cpu : c.cpu)?.toFixed(2) || '0.00' }}%
               </span>
             </div>
             <div class="peek-stat">

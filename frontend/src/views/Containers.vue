@@ -78,9 +78,9 @@
                 <!-- Stats Peek Hover (Live when hovering) -->
                 <div v-if="c.state === 'running'" class="row-stats-peek">
                    <div class="r-stat">
-                     <span class="r-val" :class="{ 'text-live': activeLiveId === c.id }">
-                       {{ (activeLiveId === c.id ? liveStats.cpu : c.cpu)?.toFixed(1) || 0 }}%
-                     </span>
+                      <span class="r-val" :class="{ 'text-live': activeLiveId === c.id }">
+                        {{ (activeLiveId === c.id ? liveStats.cpu : c.cpu)?.toFixed(2) || '0.00' }}%
+                      </span>
                    </div>
                    <div class="r-stat">
                      <span class="r-val" :class="{ 'text-live': activeLiveId === c.id }">
