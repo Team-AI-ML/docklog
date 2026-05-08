@@ -4,7 +4,12 @@
     <div class="section-header animate-slide-up">
       <div class="header-content">
         <h3>System Diagnostics</h3>
-        <p class="text-mute">Historical resource utilization metrics</p>
+        <p class="text-mute">
+          Historical resource utilization metrics
+          <span v-if="isPartialData" class="coverage-hint">
+            • Showing available {{ formatDuration(availableHours) }}
+          </span>
+        </p>
       </div>
       <div class="header-actions">
         <div class="filter-pills glass">
@@ -12,7 +17,14 @@
             v-for="f in filters"
             :key="f.label"
             @click="activeFilter = f.value"
-            :class="['range-pill', { active: activeFilter === f.value }]"
+            :class="[
+              'range-pill',
+              { 
+                active: activeFilter === f.value,
+                'is-partial': availableHours < f.value
+              }
+            ]"
+            :data-tooltip="availableHours < f.value ? `${f.note} (Partial Data Available)` : f.note"
           >
             {{ f.short }}
           </button>
@@ -20,6 +32,7 @@
             class="range-pill"
             @click="showCustomModal = true"
             :class="{ active: activeFilter === 'custom' }"
+            data-tooltip="Select specific dates"
           >
             Custom
           </button>
@@ -163,6 +176,7 @@
 
 <script setup>
 import { ref, onMounted, onUnmounted, watch, computed } from "vue";
+import { useRoute, useRouter } from "vue-router";
 import { Line } from "vue-chartjs";
 import {
   Chart as ChartJS,
@@ -190,6 +204,8 @@ ChartJS.register(
 );
 
 const isDark = computed(() => sharedState.theme === 'dark');
+const route = useRoute();
+const router = useRouter();
 
 const filters = [
   { label: "1H", short: "1H", note: "Last hour", value: 1 },
@@ -208,6 +224,26 @@ const modalError = ref("");
 const today = new Date().toISOString().split("T")[0];
 
 const history = ref([]);
+
+const availableHours = computed(() => {
+  if (history.value.length === 0) return 0;
+  const timestamps = history.value.map(h => new Date(h.timestamp).getTime());
+  const oldest = Math.min(...timestamps);
+  const now = new Date().getTime();
+  return Math.max(0, (now - oldest) / (1000 * 60 * 60));
+});
+
+const isPartialData = computed(() => {
+  if (activeFilter.value === 'custom') return false;
+  // If we have less than 95% of the requested range, call it partial
+  return availableHours.value < (activeFilter.value * 0.95);
+});
+
+const formatDuration = (hours) => {
+  if (hours < 1) return `${Math.round(hours * 60)}m`;
+  if (hours < 24) return `${hours.toFixed(1)}h`;
+  return `${(hours / 24).toFixed(1)}d`;
+};
 const chartData = ref({
   cpu: { labels: [], datasets: [] },
   mem: { labels: [], datasets: [] },
@@ -259,6 +295,29 @@ const applyCustomRange = () => {
   customEnd.value = tempEnd.value;
   activeFilter.value = "custom";
   showCustomModal.value = false;
+  updateUrl();
+};
+
+const syncStateFromUrl = () => {
+  const { range, start, end } = route.query;
+  if (range) {
+    activeFilter.value = range === "custom" ? "custom" : parseInt(range);
+  }
+  if (start) customStart.value = start;
+  if (end) customEnd.value = end;
+};
+
+const updateUrl = () => {
+  const query = { ...route.query };
+  query.range = activeFilter.value;
+  if (activeFilter.value === "custom") {
+    query.start = customStart.value;
+    query.end = customEnd.value;
+  } else {
+    delete query.start;
+    delete query.end;
+  }
+  router.replace({ query });
 };
 
 const makeChartOptions = (unit) => ({
@@ -318,7 +377,8 @@ const fetchData = async () => {
     });
     if (res.ok) {
       const data = await res.json();
-      history.value = data.reverse();
+      // Ensure history is sorted ascending (oldest first) for easier processing
+      history.value = data.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
       updateCharts();
     }
   } catch (err) {
@@ -327,18 +387,66 @@ const fetchData = async () => {
 };
 
 const updateCharts = () => {
-  const sorted = [...activeHistory.value].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
-  const labels = sorted.map(h => new Date(h.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+  const now = new Date();
+  let rangeHours = activeFilter.value;
+  let startTime;
+  
+  if (activeFilter.value === "custom") {
+    const start = new Date(customStart.value);
+    const end = new Date(customEnd.value);
+    end.setHours(23, 59, 59);
+    rangeHours = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
+    startTime = start;
+  } else {
+    startTime = new Date(now.getTime() - rangeHours * 60 * 60 * 1000);
+  }
+  
+  // 1. Generate Fixed Timeline Bins (e.g., 60 bins for any range)
+  const binCount = 60;
+  const binSizeMs = (rangeHours * 60 * 60 * 1000) / binCount;
+  const timeline = [];
+  
+  for (let i = 0; i <= binCount; i++) {
+    const t = new Date(startTime.getTime() + i * binSizeMs);
+    const isToday = t.toDateString() === now.toDateString();
+    const label = isToday
+      ? t.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      : t.toLocaleDateString([], { month: 'short', day: 'numeric' }) + ' ' + t.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      
+    timeline.push({
+      time: t,
+      label: label,
+      cpu: null,
+      mem: null
+    });
+  }
+
+  // 2. Map actual history to bins
+  // Since history is sorted ascending, we can efficiently map it
+  history.value.forEach(h => {
+    const hTime = new Date(h.timestamp);
+    if (hTime < startTime) return;
+    
+    const binIndex = Math.floor((hTime.getTime() - startTime.getTime()) / binSizeMs);
+    if (binIndex >= 0 && binIndex <= binCount) {
+      // Use latest value in the bin
+      timeline[binIndex].cpu = h.cpu;
+      timeline[binIndex].mem = h.memory;
+    }
+  });
+
+  const labels = timeline.map(t => t.label);
   
   chartData.value.cpu = {
     labels,
     datasets: [{
       label: "CPU Load",
-      data: sorted.map(h => h.cpu),
+      data: timeline.map(t => t.cpu),
       borderColor: "#6366f1",
       backgroundColor: "rgba(99, 102, 241, 0.1)",
       fill: true,
       borderWidth: 3,
+      spanGaps: true // Connect gaps if any, or keep false to show missing data
     }]
   };
 
@@ -346,18 +454,25 @@ const updateCharts = () => {
     labels,
     datasets: [{
       label: "Memory Usage",
-      data: sorted.map(h => h.memory / (1024 * 1024 * 1024)),
+      data: timeline.map(t => t.mem ? t.mem / (1024 * 1024 * 1024) : null),
       borderColor: "#10b981",
       backgroundColor: "rgba(16, 185, 129, 0.1)",
       fill: true,
       borderWidth: 3,
+      spanGaps: true
     }]
   };
 };
 
-watch([activeFilter, customStart, customEnd], updateCharts);
+watch([activeFilter, customStart, customEnd], () => {
+  updateCharts();
+  updateUrl();
+});
 
-onMounted(fetchData);
+onMounted(() => {
+  syncStateFromUrl();
+  fetchData();
+});
 </script>
 
 <style scoped>
@@ -378,6 +493,18 @@ onMounted(fetchData);
   margin: 0.25rem 0 0;
   font-size: 0.85rem;
   font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.coverage-hint {
+  color: var(--warning);
+  font-weight: 800;
+  font-size: 0.75rem;
+  background: rgba(var(--warning-rgb), 0.1);
+  padding: 0.1rem 0.5rem;
+  border-radius: 6px;
 }
 
 .filter-pills {
@@ -410,6 +537,10 @@ onMounted(fetchData);
   background: var(--accent);
   color: #fff;
   box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+}
+
+.range-pill.is-partial {
+  opacity: 0.6;
 }
 
 .health-grid {

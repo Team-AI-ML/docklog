@@ -124,22 +124,20 @@ const handleLogin = async () => {
 }
 
 .logo-box {
-  width: 60px;
-  height: 60px;
-  background: var(--bg-input);
-  border-radius: 16px;
+  width: 88px;
+  height: 88px;
   display: flex;
   align-items: center;
   justify-content: center;
   margin: 0 auto 1.5rem;
-  color: var(--accent);
-  box-shadow: 0 8px 24px rgba(99, 102, 241, 0.2);
 }
 
 .login-logo-img {
-  width: 40px;
-  height: 40px;
-  object-fit: contain;
+  width: 80px;
+  height: 80px;
+  object-fit: cover;
+  border-radius: 20px;
+  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.4);
 }
 
 .login-header h1 {

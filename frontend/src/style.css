@@ -254,6 +254,7 @@ body {
   justify-content: space-between;
   margin-bottom: 0.5rem;
   gap: 0.5rem;
+  padding: .5rem 0.5rem;
 }
 
 .sidebar-logo {

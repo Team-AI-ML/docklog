@@ -105,7 +105,9 @@
             class="mini-icon-btn hide-mobile"
             :class="{ 'active-toggle': splitView }"
             @click="toggleSplitView"
-            :data-tooltip="splitView ? 'Disable Split View' : 'Enable Split View'"
+            :data-tooltip="
+              splitView ? 'Disable Split View' : 'Enable Split View'
+            "
           >
             <svg
               viewBox="0 0 24 24"
@@ -142,13 +144,26 @@
           <!-- Stats Peek (Only for running) -->
           <div v-if="c.state === 'running'" class="stats-peek-inline">
             <div class="peek-stat">
-              <span class="p-value" :class="{ 'text-live': activeLiveId === c.id }">
-                {{ (activeLiveId === c.id ? liveStats.cpu : c.cpu)?.toFixed(2) || '0.00' }}%
+              <span
+                class="p-value"
+                :class="{ 'text-live': activeLiveId === c.id }"
+              >
+                {{
+                  (activeLiveId === c.id ? liveStats.cpu : c.cpu)?.toFixed(2) ||
+                  "0.00"
+                }}%
               </span>
             </div>
             <div class="peek-stat">
-              <span class="p-value" :class="{ 'text-live': activeLiveId === c.id }">
-                {{ formatBytes(activeLiveId === c.id ? liveStats.memory : c.memory) }}
+              <span
+                class="p-value"
+                :class="{ 'text-live': activeLiveId === c.id }"
+              >
+                {{
+                  formatBytes(
+                    activeLiveId === c.id ? liveStats.memory : c.memory,
+                  )
+                }}
               </span>
             </div>
           </div>
@@ -346,27 +361,35 @@ const syncStateFromUrl = () => {
 // Ensure we match containers even if short IDs are provided in the URL
 const displayContainers = computed(() => {
   if (containers.value.length === 0) return [];
-  
+
   const ordered = selectedIds.value
     .map((id) => {
       // Try exact match first
       let match = containers.value.find((c) => c.id === id);
       // Fallback: match by prefix (handle short IDs)
       if (!match) {
-        match = containers.value.find((c) => c.id.startsWith(id) || id.startsWith(c.id));
+        match = containers.value.find(
+          (c) => c.id.startsWith(id) || id.startsWith(c.id),
+        );
       }
       return match;
     })
     .filter(Boolean);
 
-  return splitView.value ? ordered.slice(-2) : [ordered[ordered.length - 1]].filter(Boolean);
+  return splitView.value
+    ? ordered.slice(-2)
+    : [ordered[ordered.length - 1]].filter(Boolean);
 });
 
-watch(() => containers.value, () => {
-  if (selectedIds.value.length > 0) {
-    console.log("[Logs] Containers loaded, applying selection from URL");
-  }
-}, { immediate: true });
+watch(
+  () => containers.value,
+  () => {
+    if (selectedIds.value.length > 0) {
+      console.log("[Logs] Containers loaded, applying selection from URL");
+    }
+  },
+  { immediate: true },
+);
 
 const isVisible = (id) => displayContainers.value.some((c) => c.id === id);
 const gridClass = computed(() =>
